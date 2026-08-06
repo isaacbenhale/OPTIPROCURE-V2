@@ -1,1 +1,1 @@
-CREATE INDEX idx_subscriptions_status ON subscriptions (status);
+CREATE INDEX ASYNC idx_subscriptions_status ON subscriptions (status);

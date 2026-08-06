@@ -16,7 +16,11 @@ import sys
 os.environ.setdefault("AWS_REGION", "us-east-1")
 os.environ.setdefault("DSQL_ENDPOINT", "test-cluster.dsql.us-east-1.on.aws")
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.dirname(_TESTS_DIR))  # backend/tenders_api/ (imports plats : auth, db, tenders...)
+sys.path.insert(0, _TESTS_DIR)  # ce dossier lui-même : nécessaire à `from conftest import FakeCursor`
+# sous --import-mode=importlib (backend/pytest.ini), requis pour un run
+# combiné de plusieurs Lambdas qui partagent des noms de fichiers de test.
 
 
 class FakeCursor:

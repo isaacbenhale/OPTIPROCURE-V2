@@ -12,6 +12,7 @@ import os
 import time
 
 import boto3
+import certifi
 import psycopg2
 import psycopg2.extras
 
@@ -37,7 +38,9 @@ def get_connection():
         user=DB_USER,
         password=token,
         sslmode="verify-full",
-        sslrootcert="system",
+        # "system" échoue en Lambda zip (pas de magasin CA OS à l'emplacement
+        # attendu par libpq) — bundle CA public certifi, voir migrate/handler.py.
+        sslrootcert=certifi.where(),
         cursor_factory=psycopg2.extras.RealDictCursor,
     )
     conn.autocommit = False

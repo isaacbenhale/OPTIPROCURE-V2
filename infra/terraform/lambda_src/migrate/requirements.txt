@@ -13,3 +13,8 @@
 # boto3 est déjà présent dans le runtime Lambda managé — inutile de le
 # packager, sauf si l'on fige une version précise.
 psycopg2-binary==2.9.10
+
+# Bundle CA public (Mozilla, via certifi) pour sslrootcert : l'environnement
+# Lambda zip n'a pas de magasin de certificats OS à l'emplacement attendu
+# par libpq pour sslrootcert="system" — voir handler.py, _get_connection().
+certifi

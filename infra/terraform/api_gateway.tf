@@ -68,6 +68,42 @@ resource "aws_apigatewayv2_route" "tenders_api" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
 }
 
+resource "aws_apigatewayv2_integration" "reference_data_api" {
+  api_id                 = aws_apigatewayv2_api.backoffice.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.reference_data_api.invoke_arn
+  payload_format_version = "2.0"
+}
+
+# Routes CRUD des référentiels (module 01, backend/reference_data_api) —
+# lecture ouverte à AGENT/REVIEWER/ADMIN (formulaires de création d'AO),
+# écriture réservée à ADMIN + MFA (voir reference_data.py).
+locals {
+  reference_data_api_routes = toset([
+    "GET /countries",
+    "POST /countries",
+    "GET /categories",
+    "POST /categories",
+    "PUT /categories/{id}",
+    "GET /organizations",
+    "POST /organizations",
+    "PUT /organizations/{id}",
+    "GET /diffusion-partnerships",
+    "POST /diffusion-partnerships",
+    "PUT /diffusion-partnerships/{id}",
+  ])
+}
+
+resource "aws_apigatewayv2_route" "reference_data_api" {
+  for_each = local.reference_data_api_routes
+
+  api_id             = aws_apigatewayv2_api.backoffice.id
+  route_key          = each.value
+  target             = "integrations/${aws_apigatewayv2_integration.reference_data_api.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
+}
+
 resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.backoffice.id
   name        = "$default"

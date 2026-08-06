@@ -1,1 +1,1 @@
-CREATE INDEX idx_users_role ON users (role);
+CREATE INDEX ASYNC idx_users_role ON users (role);

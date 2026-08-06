@@ -1,1 +1,1 @@
-CREATE INDEX idx_organizations_type ON organizations (org_type);
+CREATE INDEX ASYNC idx_organizations_type ON organizations (org_type);

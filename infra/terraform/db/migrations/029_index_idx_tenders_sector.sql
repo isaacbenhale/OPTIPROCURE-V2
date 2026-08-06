@@ -1,1 +1,1 @@
-CREATE INDEX idx_tenders_sector ON tenders (sector);
+CREATE INDEX ASYNC idx_tenders_sector ON tenders (sector);

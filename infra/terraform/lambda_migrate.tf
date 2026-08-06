@@ -28,6 +28,8 @@ resource "aws_lambda_function" "db_migrate" {
       # Substitué dans 059_role_tenders_api_iam_grant.sql (voir handler.py :
       # PLACEHOLDER_ENV_VARS) — jamais d'ARN codé en dur dans le SQL versionné.
       TENDERS_API_ROLE_ARN = aws_iam_role.lambda_tenders_api.arn
+      # Substitué dans 063_role_reference_data_api_iam_grant.sql.
+      REFERENCE_DATA_API_ROLE_ARN = aws_iam_role.lambda_reference_data_api.arn
     }
   }
 
@@ -59,9 +61,10 @@ resource "aws_lambda_invocation" "run_migrations" {
   input         = jsonencode({})
 
   triggers = {
-    migrations_hash      = md5(join("", [for f in local.migration_files : filemd5("${path.module}/db/migrations/${f}")]))
-    function_version     = aws_lambda_function.db_migrate.source_code_hash
-    tenders_api_role_arn = aws_iam_role.lambda_tenders_api.arn
+    migrations_hash             = md5(join("", [for f in local.migration_files : filemd5("${path.module}/db/migrations/${f}")]))
+    function_version            = aws_lambda_function.db_migrate.source_code_hash
+    tenders_api_role_arn        = aws_iam_role.lambda_tenders_api.arn
+    reference_data_api_role_arn = aws_iam_role.lambda_reference_data_api.arn
   }
 
   depends_on = [aws_s3_object.migrations]

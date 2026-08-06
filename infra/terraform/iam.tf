@@ -84,6 +84,37 @@ resource "aws_iam_role_policy" "lambda_tenders_api" {
   policy = data.aws_iam_policy_document.lambda_tenders_api_policy.json
 }
 
+# --- Lambda référentiels admin (pays/catégories/organisations/partenariats,
+# module 01) -------------------------------------------------------------
+# dsql:DbConnect (non-admin), rôle Postgres dédié reference_data_api_role
+# (migrations 062-064) — jamais le même rôle que lambda_tenders_api, même
+# principe de séparation que pour toutes les Lambdas de ce projet.
+
+resource "aws_iam_role" "lambda_reference_data_api" {
+  name               = "${local.name_prefix}-lambda-reference-data-api"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
+  tags               = local.tags
+}
+
+data "aws_iam_policy_document" "lambda_reference_data_api_policy" {
+  statement {
+    sid       = "DsqlConnect"
+    actions   = ["dsql:DbConnect"]
+    resources = [aws_dsql_cluster.main.arn]
+  }
+  statement {
+    sid       = "Logs"
+    actions   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"]
+  }
+}
+
+resource "aws_iam_role_policy" "lambda_reference_data_api" {
+  name   = "${local.name_prefix}-lambda-reference-data-api-policy"
+  role   = aws_iam_role.lambda_reference_data_api.id
+  policy = data.aws_iam_policy_document.lambda_reference_data_api_policy.json
+}
+
 # --- Lambda Publication Coordinator (stub, module 5 à venir) -----------
 
 resource "aws_iam_role" "lambda_publication_coordinator" {
