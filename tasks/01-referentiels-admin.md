@@ -1,5 +1,7 @@
 # Module 01 — Référentiels admin (organisations, catégories, pays, partenariats)
 
+> CRUD des référentiels (pays, catégories, organisations, partenariats de diffusion) — sans eux, aucun AO réel ne peut être créé. **Fait et déployé.**
+
 ## Objectif
 
 Le module 3 (`backend/tenders_api/`) valide déjà l'existence de `organization_id`, `country_id` et `category_ids` avant tout create/update d'AO (`tenders.validate_references`), mais **rien ne permet de créer ou gérer ces référentiels** — les tables `organizations`, `categories`, `countries`, `diffusion_partnerships` n'ont aucune route API. Sans ce module, un AGENT ne peut créer aucun AO réel (aucun `organization_id`/`category_id` valide n'existe en base).

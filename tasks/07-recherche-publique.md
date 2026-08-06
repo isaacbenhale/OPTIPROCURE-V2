@@ -1,5 +1,7 @@
 # Module 07 — Recherche et filtres publics
 
+> Recherche/filtres combinables sur le portail public — soulève une vraie tension d'architecture non résolue (site statique vs recherche dynamique), à trancher avant de coder.
+
 ## Objectif
 
 PRD §3.4 : recherche par mots-clés, filtres combinables (secteur, région, montant, type de procédure, date limite, statut), tri, sauvegarde de recherches (transformables en alertes — module 10). Ce module mérite un fichier séparé du générateur (module 05) parce qu'il soulève une vraie tension d'architecture non résolue par CLAUDE.md.

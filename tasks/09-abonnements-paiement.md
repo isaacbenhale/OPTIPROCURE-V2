@@ -1,5 +1,7 @@
 # Module 09 — Abonnements et paiement
 
+> Active le modèle économique : souscription aux plans (Découverte/Standard/Premium), paiement mobile money/carte, cycle de vie de l'abonnement.
+
 ## Objectif
 
 PRD §4 (modèle économique, 3 formules), §3.6 (gestion de l'abonnement et de la facturation). Active le modèle économique de la plateforme — sans lui, aucun abonné payant, aucun accès aux fiches complètes/documents/alertes selon plan.

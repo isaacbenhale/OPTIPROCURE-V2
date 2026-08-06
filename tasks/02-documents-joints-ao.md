@@ -1,5 +1,7 @@
 # Module 02 — Documents joints des AO
 
+> Upload/téléchargement des pièces jointes d'un AO (DAO, cahier des charges, annexes) via URL S3 présignées — périmètre différé lors du module 3.
+
 ## Objectif
 
 Périmètre explicitement différé lors du module 3 (voir `tasks/README.md` et l'historique de conversation) : permettre l'upload/téléchargement des pièces jointes d'un AO (DAO, cahier des charges, annexes). PRD §3.2/§3.3 : "Documents joints... Téléchargement des documents joints réservé aux abonnés selon leur plan."

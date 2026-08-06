@@ -1,5 +1,7 @@
 # Module 11 — Tableau de bord abonné
 
+> Espace personnel de l'abonné : AO suivis/favoris, historique de consultation, alertes actives, factures et historique de paiement.
+
 ## Objectif
 
 PRD §3.6 : "Tableau de bord personnel : AO suivis, favoris, alertes actives, historique de consultation" + "Gestion de l'abonnement et de la facturation (factures téléchargeables, moyen de paiement, historique des transactions)".

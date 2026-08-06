@@ -1,5 +1,7 @@
 # Module 08 — Comptes abonnés et authentification publique
 
+> Pose l'identité du portail public (inscription libre-service, connexion) — aucun mécanisme n'existe aujourd'hui, distinct du Cognito back-office.
+
 ## Objectif
 
 PRD §3.6 : "Création de compte en libre-service (inscription, vérification d'email, choix du plan) sans intervention de l'administrateur." Aucune identité publique n'existe actuellement — CLAUDE.md ne décrit que Cognito pour le **back-office**. Ce module pose l'identité du portail public, préalable à tout le reste (paiement, alertes, tableau de bord).

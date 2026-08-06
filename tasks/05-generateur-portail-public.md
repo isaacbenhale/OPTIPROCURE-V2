@@ -1,5 +1,7 @@
 # Module 05 — Générateur du portail public (`frontend-public/`)
 
+> Site Next.js statique (fiches AO, pages de collection, SEO) généré à partir du manifeste du module 04 — reconstruction ciblée, pas un rebuild complet à chaque changement.
+
 ## Objectif
 
 Construire le site Next.js statique consommé par S3+CloudFront (CLAUDE.md : "Next.js / générateur Node.js — Génération des pages statiques et des métadonnées SEO"). Consomme le manifeste produit par le module 04 pour ne reconstruire que les pages réellement affectées ("génération ciblée", pas un rebuild complet à chaque changement).

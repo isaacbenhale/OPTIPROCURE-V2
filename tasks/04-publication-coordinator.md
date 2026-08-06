@@ -1,5 +1,7 @@
 # Module 04 — Publication Coordinator
 
+> Détecte les AO changés depuis le dernier batch réussi, fait avancer APPROVED→PUBLISHED et PUBLISHED→EXPIRED, produit le manifeste consommé par le portail public. Remplace le stub actuel qui ne fait rien.
+
 ## Objectif
 
 Remplacer `infra/terraform/lambda_src/publication_coordinator_stub/handler.py` (no-op actuel) par la vraie détection de changements et génération de manifeste décrites dans CLAUDE.md §"Détection des changements". C'est le pivot entre le back-office (module 3) et le portail public (modules 05/06) — et le seul endroit qui a le droit de faire progresser un AO au-delà d'APPROVED (`tenders_api` refuse explicitement QUEUED_FOR_PUBLICATION/PUBLISHED/EXPIRED, voir `backend/tenders_api/transitions.py`).

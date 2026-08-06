@@ -1,5 +1,7 @@
 # Module 12 — Back-office admin : statistiques, gestion des abonnés, audit
 
+> Complète le back-office ADMIN au-delà du seul workflow des AO : journal d'audit visible, supervision des abonnés, statistiques (AO publiés, conversion, consultation).
+
 ## Objectif
 
 PRD §3.7 : "Supervision des abonnés... Statistiques de consultation, taux de conversion visiteur → abonné, AO les plus consultés. Journal d'audit des actions administratives (traçabilité)." Complète le back-office (module 03) avec les vues réservées à l'ADMIN au-delà du seul workflow des AO.

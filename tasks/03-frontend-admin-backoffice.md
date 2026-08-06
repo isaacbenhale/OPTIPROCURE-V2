@@ -1,5 +1,7 @@
 # Module 03 — Frontend back-office (`frontend-admin/`)
 
+> Interface SPA pour que les AGENT/REVIEWER/ADMIN utilisent réellement le workflow des AO — sans elle, l'API ne s'utilise qu'au clavier via curl/Postman.
+
 ## Objectif
 
 Le dossier `frontend-admin/` est vide. Sans lui, le module 3 (API `tenders_api`) n'est utilisable qu'au clavier via `curl`/Postman — aucun AGENT/REVIEWER/ADMIN réel ne peut travailler. C'est l'interface qui rend le workflow éditorial (PRD §3.1, §2.2) concrètement utilisable.

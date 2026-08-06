@@ -1,5 +1,7 @@
 # Module 06 — Pipeline de déploiement frontend (GitHub Actions)
 
+> Écrit les workflows `.github/workflows/*.yml` manquants : publication incrémentale des données vs déploiement complet du frontend — deux pipelines distincts, jamais fusionnés.
+
 ## Objectif
 
 Écrire les workflows `.github/workflows/*.yml` mentionnés comme manquants dans `infra/terraform/README.md`. CLAUDE.md est explicite : **deux pipelines distincts, jamais fusionnés** — publication incrémentale des données (déclenchée par le manifeste) vs déploiement complet du frontend (déclenché par un merge de code Next.js).

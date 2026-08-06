@@ -1,5 +1,7 @@
 # Module 10 — Alertes et notifications
 
+> Synthèse quotidienne/hebdomadaire par email (puis SMS) sur les recherches sauvegardées d'un abonné — aucune table de données ne couvre encore ce besoin, à créer.
+
 ## Objectif
 
 PRD §3.5 : alertes email (SMS pour les plans supérieurs) déclenchées par des critères sauvegardés, fréquence configurable (synthèse quotidienne ou hebdomadaire), notification de modification d'un AO suivi, notification de fin d'abonnement. CLAUDE.md : "Les alertes abonnés suivent la même cadence quotidienne (synthèse groupée, pas de notification instantanée par AO)."
