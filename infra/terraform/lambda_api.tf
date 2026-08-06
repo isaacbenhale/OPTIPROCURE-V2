@@ -1,10 +1,14 @@
 # =====================================================================
-# Lambdas applicatives (placeholders fonctionnels — modules 3 et 5)
+# Lambdas applicatives — tenders_api (module 3, CRUD + workflow des AO) et
+# Publication Coordinator (module 5, encore un placeholder)
 # =====================================================================
+# tenders_api : code source dans backend/tenders_api/, packagé (avec
+# psycopg2-binary vendorisé) par `make build-tenders-api-lambda` dans
+# build/tenders_api/ avant `terraform apply` — voir Makefile.
 
 data "archive_file" "lambda_tenders_api" {
   type        = "zip"
-  source_dir  = "${path.module}/lambda_src/tenders_api"
+  source_dir  = "${path.module}/build/tenders_api"
   output_path = "${path.module}/build/tenders_api.zip"
 }
 
@@ -22,6 +26,9 @@ resource "aws_lambda_function" "tenders_api" {
   environment {
     variables = {
       DSQL_ENDPOINT = local.dsql_endpoint
+      # Rôle Postgres non-admin créé/lié par les migrations 058-061 —
+      # jamais dsql:DbConnectAdmin pour cette Lambda (voir iam.tf).
+      DSQL_APP_USER = "tenders_api_role"
     }
   }
 

@@ -14,6 +14,13 @@ Déclenchement : invoqué par Terraform (aws_lambda_invocation, voir
 lambda_migrate.tf) après chaque changement du contenu du bucket de
 migrations. Peut aussi être invoqué manuellement :
   aws lambda invoke --function-name <name> --payload '{}' out.json
+
+Substitution de placeholders : certains fichiers de migration référencent
+des valeurs connues uniquement de Terraform (ex. l'ARN IAM d'un rôle Lambda
+consommateur, dans 059_role_tenders_api_iam_grant.sql) — jamais codées en
+dur dans le SQL versionné. Ces fichiers contiennent un placeholder
+__NOM__ remplacé ici par la variable d'environnement correspondante avant
+exécution ; no-op si le placeholder est absent du fichier.
 """
 import json
 import os
@@ -30,6 +37,25 @@ MIGRATIONS_BUCKET = os.environ["MIGRATIONS_BUCKET"]
 MAX_RETRIES = 5
 BASE_BACKOFF_SECONDS = 1.5
 OCC_SQLSTATE = "40001"
+
+# Placeholder -> variable d'environnement. Ajouter une entrée ici pour
+# chaque nouveau placeholder introduit dans une migration.
+PLACEHOLDER_ENV_VARS = {
+    "__TENDERS_API_ROLE_ARN__": "TENDERS_API_ROLE_ARN",
+}
+
+
+def _substitute_placeholders(sql_text):
+    for placeholder, env_var in PLACEHOLDER_ENV_VARS.items():
+        if placeholder in sql_text:
+            value = os.environ.get(env_var)
+            if not value:
+                raise RuntimeError(
+                    f"Placeholder {placeholder} présent dans la migration mais "
+                    f"variable d'environnement {env_var} absente/vide."
+                )
+            sql_text = sql_text.replace(placeholder, value)
+    return sql_text
 
 
 def _get_connection():
@@ -87,7 +113,7 @@ def handler(event, context):
     try:
         for key in keys:
             obj = s3.get_object(Bucket=MIGRATIONS_BUCKET, Key=key)
-            sql_text = obj["Body"].read().decode("utf-8")
+            sql_text = _substitute_placeholders(obj["Body"].read().decode("utf-8"))
             # Retire les lignes de commentaire pur pour éviter d'exécuter
             # un "batch" vide (fichier composé uniquement de commentaires).
             meaningful = "\n".join(

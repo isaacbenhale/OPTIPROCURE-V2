@@ -18,6 +18,7 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+.pytest_cache/
 
 # Terraform (voir aussi infra/terraform/.gitignore, plus spécifique)
 **/.terraform/
@@ -28,3 +29,6 @@ venv/
 # Editors
 .vscode/
 .idea/
+
+# Claude Code — permissions/config locales, propres à la machine
+.claude/settings.local.json

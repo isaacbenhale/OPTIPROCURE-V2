@@ -25,6 +25,9 @@ resource "aws_lambda_function" "db_migrate" {
     variables = {
       DSQL_ENDPOINT     = local.dsql_endpoint
       MIGRATIONS_BUCKET = aws_s3_bucket.migrations.bucket
+      # Substitué dans 059_role_tenders_api_iam_grant.sql (voir handler.py :
+      # PLACEHOLDER_ENV_VARS) — jamais d'ARN codé en dur dans le SQL versionné.
+      TENDERS_API_ROLE_ARN = aws_iam_role.lambda_tenders_api.arn
     }
   }
 
@@ -56,8 +59,9 @@ resource "aws_lambda_invocation" "run_migrations" {
   input         = jsonencode({})
 
   triggers = {
-    migrations_hash  = md5(join("", [for f in local.migration_files : filemd5("${path.module}/db/migrations/${f}")]))
-    function_version = aws_lambda_function.db_migrate.source_code_hash
+    migrations_hash      = md5(join("", [for f in local.migration_files : filemd5("${path.module}/db/migrations/${f}")]))
+    function_version     = aws_lambda_function.db_migrate.source_code_hash
+    tenders_api_role_arn = aws_iam_role.lambda_tenders_api.arn
   }
 
   depends_on = [aws_s3_object.migrations]
