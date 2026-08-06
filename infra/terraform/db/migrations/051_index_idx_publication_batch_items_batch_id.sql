@@ -1,0 +1,1 @@
+CREATE INDEX idx_publication_batch_items_batch_id ON publication_batch_items (publication_batch_id);

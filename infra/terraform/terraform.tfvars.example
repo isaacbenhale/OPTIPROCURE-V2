@@ -1,0 +1,11 @@
+project_name = "optiprocure"
+environment  = "dev"
+aws_region   = "us-east-1" # vérifier la disponibilité d'Aurora DSQL dans la région choisie
+
+github_org  = "ton-organisation-github"
+github_repo = "optiprocure"
+
+cognito_callback_urls = ["http://localhost:3000/callback"]
+cognito_logout_urls   = ["http://localhost:3000/logout"]
+
+dsql_deletion_protection = false # passer à true en prod

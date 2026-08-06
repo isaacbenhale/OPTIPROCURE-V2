@@ -1,0 +1,15 @@
+# psycopg2 nécessite des bibliothèques natives (libpq) : ne PAS packager
+# psycopg2 "pip install" standard avec le zip Lambda tel quel, cela échoue
+# à l'exécution (build sur une machine différente de l'environnement Lambda).
+#
+# Deux options concrètes :
+#   1. Utiliser le layer public AWSSDKPandas ou un layer psycopg2-binary
+#      compilé pour Amazon Linux (ex. github.com/jetbridge/psycopg2-lambda-layer,
+#      à vérifier/republier soi-même plutôt que dépendre d'un tiers en prod).
+#   2. Construire le zip avec `pip install --platform manylinux2014_x86_64
+#      --target ./package --only-binary=:all: psycopg2-binary boto3` dans
+#      un conteneur amazonlinux avant `terraform apply` (voir Makefile).
+#
+# boto3 est déjà présent dans le runtime Lambda managé — inutile de le
+# packager, sauf si l'on fige une version précise.
+psycopg2-binary==2.9.10
