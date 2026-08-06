@@ -1,8 +1,9 @@
 """
 Calcul de content_hash — sert au Publication Coordinator (module 5) pour
 détecter les AO réellement modifiés depuis le dernier batch. Recalculé
-uniquement quand le CONTENU métier change (create_tender/update_tender),
-jamais sur une simple transition de statut.
+quand le CONTENU métier change (create_tender/update_tender) ou quand la
+liste des documents joints change (module 02, voir documents.py) — jamais
+sur une simple transition de statut.
 """
 import hashlib
 import json
@@ -10,6 +11,9 @@ import json
 # Champs de contenu métier visibles une fois l'AO publié. Exclut
 # explicitement : id, status, created_by, reviewed_by, approved_by,
 # created_at, updated_at, deleted_at, content_hash lui-même.
+# document_ids : liste des documents joints non supprimés (module 02) — un
+# ajout/retrait de pièce jointe doit invalider le hash, la fiche publique
+# affichera la liste des documents disponibles.
 CONTENT_FIELDS = (
     "reference_number", "title", "description", "sector",
     "organization_id", "country_id", "category_ids",
@@ -20,6 +24,7 @@ CONTENT_FIELDS = (
     "eligibility_criteria", "required_documents",
     "contact_name", "contact_role", "contact_email", "contact_phone",
     "source_name", "source_url",
+    "document_ids",
 )
 
 
@@ -27,7 +32,7 @@ def compute_content_hash(tender: dict) -> str:
     canonical = {}
     for field in CONTENT_FIELDS:
         value = tender.get(field)
-        if field == "category_ids" and value is not None:
+        if isinstance(value, list):
             value = sorted(value)
         canonical[field] = value
     payload = json.dumps(canonical, sort_keys=True, separators=(",", ":"), default=str)

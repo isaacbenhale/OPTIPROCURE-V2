@@ -54,6 +54,11 @@ locals {
     "POST /tenders/{id}/reject",
     "POST /tenders/{id}/archive",
     "GET /tenders/{id}/history",
+    # Documents joints (module 02) — voir backend/tenders_api/documents.py
+    "POST /tenders/{id}/documents",
+    "GET /tenders/{id}/documents",
+    "GET /tenders/{id}/documents/{docId}",
+    "DELETE /tenders/{id}/documents/{docId}",
     "GET /me",
   ])
 }

@@ -14,6 +14,7 @@ from datetime import datetime
 
 import auth
 import db
+import documents as documents_module
 import tenders as tenders_module
 from errors import ApiError, NotFoundError, ValidationError
 
@@ -53,7 +54,7 @@ def _parse_body(event):
         raise ValidationError("Corps de requête JSON invalide.") from exc
 
 
-def _route(cur, route_key, user, tender_id, body, query_params, correlation_id, ip_address):
+def _route(cur, route_key, user, tender_id, document_id, body, query_params, correlation_id, ip_address):
     if route_key == "GET /tenders":
         filters = {k: v for k, v in query_params.items() if k in ("status", "sector", "procedure_type", "country_id", "category_id", "q")}
         cursor = query_params.get("cursor")
@@ -95,6 +96,19 @@ def _route(cur, route_key, user, tender_id, body, query_params, correlation_id, 
     if route_key == "GET /tenders/{id}/history":
         return 200, {"items": tenders_module.get_status_history(cur, user, tender_id)}
 
+    if route_key == "POST /tenders/{id}/documents":
+        return 201, documents_module.create_upload(cur, user, tender_id, body, correlation_id, ip_address)
+
+    if route_key == "GET /tenders/{id}/documents":
+        return 200, {"items": documents_module.list_documents(cur, user, tender_id)}
+
+    if route_key == "GET /tenders/{id}/documents/{docId}":
+        return 200, documents_module.get_document_download_url(cur, user, tender_id, document_id)
+
+    if route_key == "DELETE /tenders/{id}/documents/{docId}":
+        documents_module.delete_document(cur, user, tender_id, document_id, correlation_id, ip_address)
+        return 200, {"status": "deleted"}
+
     if route_key == "GET /me":
         return 200, user
 
@@ -126,10 +140,13 @@ def handler(event, context):
         path_params = event.get("pathParameters") or {}
         query_params = event.get("queryStringParameters") or {}
         tender_id = path_params.get("id")
+        document_id = path_params.get("docId")
 
         status_code, payload = db.run_in_transaction(
             conn,
-            lambda cur: _route(cur, route_key, user, tender_id, body, query_params, correlation_id, ip_address),
+            lambda cur: _route(
+                cur, route_key, user, tender_id, document_id, body, query_params, correlation_id, ip_address
+            ),
         )
 
         logger.info(

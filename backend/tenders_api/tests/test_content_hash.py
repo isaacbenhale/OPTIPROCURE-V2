@@ -26,6 +26,7 @@ BASE_TENDER = {
     "contact_phone": "+228 90 00 00 00",
     "source_name": "ARCOP",
     "source_url": "https://arcop.tg/ao/001",
+    "document_ids": ["doc-2", "doc-1"],
     # champs exclus du hash — ne doivent avoir aucun effet
     "id": "should-not-matter",
     "status": "DRAFT",
@@ -59,4 +60,16 @@ def test_hash_changes_when_title_changes():
 def test_hash_changes_when_budget_changes():
     a = compute_content_hash(BASE_TENDER)
     b = compute_content_hash(dict(BASE_TENDER, estimated_budget=Decimal("1500000.01")))
+    assert a != b
+
+
+def test_hash_ignores_document_ids_order():
+    a = dict(BASE_TENDER, document_ids=["doc-1", "doc-2"])
+    b = dict(BASE_TENDER, document_ids=["doc-2", "doc-1"])
+    assert compute_content_hash(a) == compute_content_hash(b)
+
+
+def test_hash_changes_when_document_added():
+    a = compute_content_hash(BASE_TENDER)
+    b = compute_content_hash(dict(BASE_TENDER, document_ids=["doc-1", "doc-2", "doc-3"]))
     assert a != b

@@ -1,6 +1,6 @@
 # Module 02 — Documents joints des AO
 
-> Upload/téléchargement des pièces jointes d'un AO (DAO, cahier des charges, annexes) via URL S3 présignées — périmètre différé lors du module 3.
+> Upload/téléchargement des pièces jointes d'un AO (DAO, cahier des charges, annexes) via URL S3 présignées — périmètre différé lors du module 3. **Fait et déployé** (flux simplifié en une étape, sans `/confirm` séparé — voir le fichier pour le détail).
 
 ## Objectif
 

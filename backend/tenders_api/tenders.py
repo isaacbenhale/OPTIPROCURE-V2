@@ -107,7 +107,7 @@ def validate_required_for_submit(tender, category_ids):
 
 # --- Helpers internes -------------------------------------------------
 
-def _get_tender(cur, tender_id):
+def get_tender_row(cur, tender_id):
     cur.execute("SELECT * FROM tenders WHERE id = %(id)s", {"id": tender_id})
     return cur.fetchone()
 
@@ -128,6 +128,35 @@ def _get_category_ids(cur, tender_id):
     return [row["category_id"] for row in cur.fetchall()]
 
 
+def get_document_ids(cur, tender_id):
+    """Documents non supprimés d'un AO — utilisé pour le content_hash (module 02)."""
+    cur.execute(
+        "SELECT id FROM tender_documents WHERE tender_id = %(id)s AND deleted_at IS NULL", {"id": tender_id}
+    )
+    return [row["id"] for row in cur.fetchall()]
+
+
+def recompute_content_hash(cur, tender_id):
+    """
+    Recalcule et persiste tenders.content_hash à partir de l'état actuel
+    (contenu + catégories + documents). Appelé par tenders.py lui-même
+    (create/update) et par documents.py après upload/suppression d'une
+    pièce jointe (module 02) — un ajout/retrait de document est un
+    changement de contenu au même titre qu'un champ modifié.
+    """
+    cur.execute("SELECT * FROM tenders WHERE id = %(id)s", {"id": tender_id})
+    tender = cur.fetchone()
+    content = {col: tender.get(col) for col in CONTENT_COLUMNS}
+    content["category_ids"] = _get_category_ids(cur, tender_id)
+    content["document_ids"] = get_document_ids(cur, tender_id)
+    new_hash = compute_content_hash(content)
+    cur.execute(
+        "UPDATE tenders SET content_hash = %(hash)s, updated_at = now() WHERE id = %(id)s",
+        {"hash": new_hash, "id": tender_id},
+    )
+    return new_hash
+
+
 def _set_categories(cur, tender_id, category_ids, primary_category_id):
     cur.execute("DELETE FROM tender_categories WHERE tender_id = %(id)s", {"id": tender_id})
     for category_id in category_ids or []:
@@ -144,7 +173,7 @@ def _set_categories(cur, tender_id, category_ids, primary_category_id):
         )
 
 
-def _write_audit(cur, user, action, entity_id, details, correlation_id, ip_address):
+def write_audit(cur, user, action, entity_id, details, correlation_id, ip_address):
     cur.execute(
         """
         INSERT INTO audit_log (actor_user_id, action, entity_type, entity_id, details, ip_address, correlation_id)
@@ -184,7 +213,7 @@ def _apply_transition(cur, tender, to_status, user, reason, correlation_id, ip_a
             "changed_by": user["id"], "reason": reason,
         },
     )
-    _write_audit(cur, user, f"STATUS_{to_status}", tender["id"], {"from": from_status, "to": to_status, "reason": reason}, correlation_id, ip_address)
+    write_audit(cur, user, f"STATUS_{to_status}", tender["id"], {"from": from_status, "to": to_status, "reason": reason}, correlation_id, ip_address)
     return updated
 
 
@@ -287,6 +316,7 @@ def create_tender(cur, user, payload, correlation_id, ip_address):
     tender_id = str(uuid.uuid4())
     content = {col: payload.get(col) for col in CONTENT_COLUMNS}
     content["category_ids"] = category_ids
+    content["document_ids"] = []  # aucun document possible avant la création de l'AO
     content_hash = compute_content_hash(content)
 
     columns = ["id", "created_by", "status", "content_hash", *CONTENT_COLUMNS]
@@ -306,7 +336,7 @@ def create_tender(cur, user, payload, correlation_id, ip_address):
         """,
         {"tender_id": tender_id, "changed_by": user["id"]},
     )
-    _write_audit(cur, user, "CREATE", tender_id, {"title": payload.get("title")}, correlation_id, ip_address)
+    write_audit(cur, user, "CREATE", tender_id, {"title": payload.get("title")}, correlation_id, ip_address)
 
     tender["category_ids"] = category_ids
     return tender
@@ -316,7 +346,7 @@ def update_tender(cur, user, tender_id, payload, correlation_id, ip_address):
     require_role(user, {"AGENT"})
     _validate_enum_fields(payload)
 
-    tender = _get_tender(cur, tender_id)
+    tender = get_tender_row(cur, tender_id)
     if tender is None or tender["deleted_at"] is not None:
         raise NotFoundError("AO introuvable.")
     if tender["created_by"] != user["id"]:
@@ -334,6 +364,7 @@ def update_tender(cur, user, tender_id, payload, correlation_id, ip_address):
 
     content = dict(merged)
     content["category_ids"] = category_ids
+    content["document_ids"] = get_document_ids(cur, tender_id)  # non affectés par cet appel, mais inclus pour cohérence
     content_hash = compute_content_hash(content)
 
     set_clauses = [f"{c} = %({c})s" for c in CONTENT_COLUMNS] + ["content_hash = %(content_hash)s", "updated_at = now()"]
@@ -346,7 +377,7 @@ def update_tender(cur, user, tender_id, payload, correlation_id, ip_address):
 
     if "category_ids" in payload:
         _set_categories(cur, tender_id, category_ids, primary_category_id)
-    _write_audit(cur, user, "UPDATE", tender_id, {"fields": list(payload.keys())}, correlation_id, ip_address)
+    write_audit(cur, user, "UPDATE", tender_id, {"fields": list(payload.keys())}, correlation_id, ip_address)
 
     updated["category_ids"] = category_ids
     return updated
@@ -354,7 +385,7 @@ def update_tender(cur, user, tender_id, payload, correlation_id, ip_address):
 
 def submit_for_review(cur, user, tender_id, correlation_id, ip_address):
     require_role(user, {"AGENT"})
-    tender = _get_tender(cur, tender_id)
+    tender = get_tender_row(cur, tender_id)
     if tender is None or tender["deleted_at"] is not None:
         raise NotFoundError("AO introuvable.")
     is_owner = tender["created_by"] == user["id"]
@@ -370,7 +401,7 @@ def submit_for_review(cur, user, tender_id, correlation_id, ip_address):
 
 def return_to_agent(cur, user, tender_id, reason, correlation_id, ip_address):
     require_role(user, {"REVIEWER"})
-    tender = _get_tender(cur, tender_id)
+    tender = get_tender_row(cur, tender_id)
     if tender is None or tender["deleted_at"] is not None:
         raise NotFoundError("AO introuvable.")
     can_transition(
@@ -382,7 +413,7 @@ def return_to_agent(cur, user, tender_id, reason, correlation_id, ip_address):
 
 def endorse(cur, user, tender_id, correlation_id, ip_address):
     require_role(user, {"REVIEWER"})
-    tender = _get_tender(cur, tender_id)
+    tender = get_tender_row(cur, tender_id)
     if tender is None or tender["deleted_at"] is not None:
         raise NotFoundError("AO introuvable.")
     if tender["status"] != "PENDING_REVIEW":
@@ -393,14 +424,14 @@ def endorse(cur, user, tender_id, correlation_id, ip_address):
         {"reviewer": user["id"], "id": tender_id},
     )
     updated = cur.fetchone()
-    _write_audit(cur, user, "ENDORSE", tender_id, {}, correlation_id, ip_address)
+    write_audit(cur, user, "ENDORSE", tender_id, {}, correlation_id, ip_address)
     return updated
 
 
 def approve(cur, user, tender_id, correlation_id, ip_address):
     require_role(user, {"ADMIN"})
     require_mfa(user)
-    tender = _get_tender(cur, tender_id)
+    tender = get_tender_row(cur, tender_id)
     if tender is None or tender["deleted_at"] is not None:
         raise NotFoundError("AO introuvable.")
     can_transition(
@@ -413,7 +444,7 @@ def approve(cur, user, tender_id, correlation_id, ip_address):
 def reject(cur, user, tender_id, reason, correlation_id, ip_address):
     require_role(user, {"ADMIN"})
     require_mfa(user)
-    tender = _get_tender(cur, tender_id)
+    tender = get_tender_row(cur, tender_id)
     if tender is None or tender["deleted_at"] is not None:
         raise NotFoundError("AO introuvable.")
     can_transition(
@@ -426,7 +457,7 @@ def reject(cur, user, tender_id, reason, correlation_id, ip_address):
 def archive(cur, user, tender_id, correlation_id, ip_address):
     require_role(user, {"ADMIN"})
     require_mfa(user)
-    tender = _get_tender(cur, tender_id)
+    tender = get_tender_row(cur, tender_id)
     if tender is None or tender["deleted_at"] is not None:
         raise NotFoundError("AO introuvable.")
     can_transition(
@@ -438,7 +469,7 @@ def archive(cur, user, tender_id, correlation_id, ip_address):
 
 def delete_tender(cur, user, tender_id, correlation_id, ip_address):
     require_role(user, {"ADMIN"})
-    tender = _get_tender(cur, tender_id)
+    tender = get_tender_row(cur, tender_id)
     if tender is None or tender["deleted_at"] is not None:
         raise NotFoundError("AO introuvable.")
     if tender["status"] != "DRAFT":
@@ -448,4 +479,4 @@ def delete_tender(cur, user, tender_id, correlation_id, ip_address):
         "UPDATE tenders SET deleted_at = now(), updated_at = now() WHERE id = %(id)s",
         {"id": tender_id},
     )
-    _write_audit(cur, user, "DELETE", tender_id, {}, correlation_id, ip_address)
+    write_audit(cur, user, "DELETE", tender_id, {}, correlation_id, ip_address)

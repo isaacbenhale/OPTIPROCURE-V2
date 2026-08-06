@@ -15,6 +15,7 @@ import sys
 
 os.environ.setdefault("AWS_REGION", "us-east-1")
 os.environ.setdefault("DSQL_ENDPOINT", "test-cluster.dsql.us-east-1.on.aws")
+os.environ.setdefault("DOCUMENTS_BUCKET", "test-documents-bucket")
 
 _TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(_TESTS_DIR))  # backend/tenders_api/ (imports plats : auth, db, tenders...)

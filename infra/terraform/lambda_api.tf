@@ -29,6 +29,10 @@ resource "aws_lambda_function" "tenders_api" {
       # Rôle Postgres non-admin créé/lié par les migrations 058-061 —
       # jamais dsql:DbConnectAdmin pour cette Lambda (voir iam.tf).
       DSQL_APP_USER = "tenders_api_role"
+      # Documents joints des AO (module 02) — URL S3 présignées, voir
+      # backend/tenders_api/documents.py. Permissions déjà posées sur ce
+      # bucket dans iam.tf (lambda_tenders_api_policy, statement DocumentsBucket).
+      DOCUMENTS_BUCKET = aws_s3_bucket.documents.bucket
     }
   }
 
