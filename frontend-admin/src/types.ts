@@ -130,6 +130,18 @@ export interface Organization {
   is_active: boolean;
 }
 
+export interface DiffusionPartnership {
+  id: string;
+  organization_id: string;
+  convention_reference: string;
+  signed_at: string;
+  valid_from: string;
+  valid_until: string | null;
+  status: "ACTIVE" | "SUSPENDED" | "EXPIRED" | "TERMINATED";
+  document_s3_key: string | null;
+  notes: string | null;
+}
+
 export interface ApiErrorBody {
   error: {
     code: "VALIDATION_ERROR" | "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "INTERNAL_ERROR";

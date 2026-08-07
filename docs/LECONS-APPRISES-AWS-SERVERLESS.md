@@ -16,6 +16,9 @@
 10. [Boucle de redirection auth invisible côté SPA](#10-boucle-de-redirection-auth-invisible-côté-spa)
 11. [Scope OAuth manquant pour les appels Cognito self-service](#11-scope-oauth-manquant-pour-les-appels-cognito-self-service)
 12. [Cognito Hosted UI rejette certaines combinaisons de scopes](#12-cognito-hosted-ui-rejette-certaines-combinaisons-de-scopes)
+13. [GRANT Postgres incomplet sur un rôle dédié par Lambda](#13-grant-postgres-incomplet-sur-un-rôle-dédié-par-lambda)
+14. [Course entre déconnexion et redirection automatique côté SPA](#14-course-entre-déconnexion-et-redirection-automatique-côté-spa)
+15. [Verrou anti-boucle jamais réinitialisé après un succès](#15-verrou-anti-boucle-jamais-réinitialisé-après-un-succès)
 
 ---
 
@@ -187,9 +190,49 @@ Résultat : n'importe quelle erreur — même transitoire, même un vrai bug de 
 
 ---
 
+## 13. GRANT Postgres incomplet sur un rôle dédié par Lambda
+
+**Symptôme** : une route API qui n'avait jamais été exercée jusque-là (ex. le tout premier `POST` d'écriture d'un nouveau module) échoue en `500 INTERNAL_ERROR`, alors que les routes de lecture du même module fonctionnent parfaitement depuis son déploiement.
+
+**Cause réelle** : `psycopg2.errors.InsufficientPrivilege: permission denied for table X`. Chaque Lambda a un rôle Postgres dédié, non-admin, avec un `GRANT` explicite limité aux tables dont on pense qu'elle a besoin (bon principe de moindre privilège) — mais le `GRANT` initial a été écrit en pensant aux tables "métier" évidentes du module, en oubliant une table transversale utilisée incidemment par une fonction générique (typiquement `audit_log`, écrite par une fonction d'audit systématique, ou une table de jonction ajoutée dans un module ultérieur). Le bug est **silencieux jusqu'au premier appel réel de ce chemin de code** — ce n'est repéré ni en lecture, ni en test unitaire mocké, ni tant que personne n'exerce cette route précise en environnement réel. Constaté deux fois dans le même projet, sur deux rôles différents (`tenders_api_role` oubliant `tender_documents`, `reference_data_api_role` oubliant `audit_log`) : ce n'est pas un accident isolé, c'est un point faible structurel de l'approche "un rôle, un GRANT à la main".
+
+**Correctif** : migration additive `GRANT SELECT, INSERT [, UPDATE] ON <table_oubliée> TO <role>;` — idempotente et rejouable comme toute migration DSQL (voir §5).
+
+**Règle générale** :
+- Au moment d'écrire le `GRANT` initial d'un nouveau rôle par Lambda, lister explicitement **toutes** les tables touchées par le code, pas seulement les tables "métier" évidentes du module — grep le code pour tout `INSERT INTO`/`UPDATE`/`SELECT` avant d'écrire la migration de GRANT, plutôt que de le déduire de mémoire.
+- Ne pas se fier à des tests qui passent : un test unitaire avec curseur mocké ne détecte jamais un `GRANT` manquant — c'est une classe de bug invisible à toute la pyramide de tests sauf un vrai test d'intégration contre la base réelle, exerçant chaque route en écriture au moins une fois après déploiement.
+- Après le déploiement d'un nouveau rôle/module, exercer manuellement (ou via script) **chaque route d'écriture** au moins une fois contre l'environnement réel avant de considérer le module "terminé" — pas seulement les routes de lecture, qui masquent ce bug.
+
+---
+
+## 14. Course entre déconnexion et redirection automatique côté SPA
+
+**Symptôme** : le clic sur "Déconnexion" ne déconnecte pas réellement l'utilisateur — l'URL transite brièvement par `/callback?code=...&state=...` puis revient sur une route protégée, toujours authentifié. Comportement non déterministe : parfois l'utilisateur est reconnecté silencieusement, parfois un écran d'erreur générique apparaît à la place — jamais le même symptôme deux fois de suite en apparence, ce qui égare le diagnostic.
+
+**Cause réelle** — trouvée uniquement via une trace de navigation en navigateur réel (Playwright headless), impossible à voir avec de simples logs serveur puisque tout se joue côté client : le handler de déconnexion faisait `setUser(null)` (état React) **avant** d'appeler la vraie navigation plein-page vers l'endpoint `/logout` de l'IdP. `setUser(null)` déclenche un re-render synchrone du garde de route protégée, qui — puisque la navigation plein-page n'a pas encore eu le temps de partir (elle prend un temps réel non nul : DNS/TLS/HTTP) — monte la page de login **avant** que le vrai logout n'ait eu lieu. Cette page de login lance alors sa propre redirection vers l'IdP, en concurrence directe avec la vraie déconnexion. Selon laquelle des deux navigations "gagne" la course, soit la session IdP n'est jamais réellement invalidée (SSO silencieux → reconnexion automatique), soit un état intermédiaire est pollué (voir §15).
+
+**Correctif** : ne modifier **aucun état React qui pourrait déclencher un re-render/redirection** juste avant un `window.location.assign()` de déconnexion — la page va de toute façon être détruite dans l'instant qui suit, un `setState` juste avant est non seulement inutile mais activement dangereux. Faire uniquement : effacer le storage (tokens), puis naviguer.
+
+**Règle générale** : dans tout flux d'auth SPA, se méfier de **toute** mise à jour d'état React placée juste avant une navigation plein-page (`window.location.assign`/`href`) — la navigation n'est jamais instantanée du point de vue du moteur JS, et le re-render qu'elle est censée rendre obsolète a le temps de s'exécuter et de produire des effets de bord (dont, ironiquement, une AUTRE tentative de navigation concurrente) avant que le navigateur ne quitte réellement la page. Un bug de ce type ne se voit **jamais** dans les logs serveur (tout se passe avant que la moindre requête réseau parte) — seule une trace de navigation en navigateur réel (Playwright/Puppeteer avec `page.on("framenavigated", ...)`) le révèle de façon fiable ; le reproduire avec de simples appels `curl`/API ne suffit pas puisque la race dépend du timing réel du moteur de rendu et du réseau.
+
+---
+
+## 15. Verrou anti-boucle jamais réinitialisé après un succès
+
+**Symptôme** : un cycle utilisateur parfaitement légitime et rapide (connexion → déconnexion → reconnexion, le tout en moins de quelques secondes) déclenche un écran d'erreur générique ("la connexion échoue de façon répétée") au lieu de fonctionner normalement — alors qu'aucune vraie boucle d'échec n'a eu lieu.
+
+**Cause réelle** : un mécanisme anti-boucle ajouté pour casser une *vraie* boucle de redirection invisible (voir §10) mémorise un horodatage à chaque tentative et refuse de re-rediriger si la dernière tentative remonte à moins de N secondes. Ce timestamp n'était mis à jour qu'au **début** de chaque tentative, jamais effacé après un **succès** — donc deux tentatives de connexion entièrement indépendantes et légitimes (séparées par une session active entre les deux) tombaient dans la même fenêtre de temps et la seconde était prise à tort pour la continuation d'une boucle d'échec.
+
+**Correctif** : effacer explicitement le verrou dès qu'une authentification réussit (pas seulement le laisser expirer par timeout) — le verrou doit refléter "depuis quand la DERNIÈRE TENTATIVE EN ÉCHEC a eu lieu", jamais "depuis quand une tentative a eu lieu", succès inclus.
+
+**Règle générale** : tout mécanisme de type "cooldown"/"anti-boucle" basé sur un simple horodatage + fenêtre de temps doit distinguer explicitement échec et succès — un timestamp qui n'est mis à jour qu'en début de tentative, sans jamais être nettoyé sur succès, finira toujours par confondre "ça boucle" et "l'utilisateur est juste rapide". Tester ce genre de mécanisme non seulement sur le scénario d'échec qu'il est censé attraper, mais aussi sur le cycle légitime le plus rapide plausible (ici : logout immédiatement suivi d'un nouveau login) — un test qui ne couvre que le cas d'échec laisse ce genre de faux positif invisible jusqu'à ce qu'un vrai utilisateur le déclenche.
+
+---
+
 ## Méthode de diagnostic transversale (le vrai enseignement)
 
 Le fil conducteur de toutes les entrées ci-dessus : **chaque bug a été résolu en obtenant une preuve empirique directe (log CloudWatch réel, `curl` avec le vrai en-tête/token, simulation du parcours exact du protocole), jamais en corrigeant sur hypothèse.** Deux pièges récurrents à éviter explicitement :
 
 1. **Un correctif qui « devrait » marcher n'est pas un correctif vérifié.** Après chaque changement dans une chaîne d'auth/réseau multi-couches (CORS → IAM → parsing de claims → scopes OAuth), il y a eu plusieurs fois une couche suivante non encore testée qui faisait échouer la même symptomatologie apparente pour une raison totalement différente. Ne jamais annoncer un problème résolu sans avoir revérifié le symptôme original avec une preuve fraîche.
 2. **Un raccourci de test peut contourner exactement le bug qu'on cherche à reproduire.** Utiliser `ADMIN_USER_PASSWORD_AUTH`/`USER_SRP_AUTH` pour obtenir rapidement un token de test a occulté deux bugs réels (claims/scopes) qui n'existent que dans le vrai flux OAuth Hosted UI. Quand un raccourci de test existe, se demander explicitement : « ce raccourci emprunte-t-il exactement le même chemin de code que l'utilisateur réel ? » — sinon, il faut aussi valider avec le chemin réel avant de clore le sujet.
+3. **Certains bugs ne laissent aucune trace côté serveur — seul un vrai navigateur les révèle.** Les bugs §14/§15 (course de navigation, verrou anti-boucle) ne produisent ni erreur HTTP, ni log CloudWatch, ni entrée réseau anormale : tout se joue dans le timing du moteur de rendu et du routeur client, avant qu'une requête ne parte. `curl`/`requests` avec un cookie jar (très efficace pour les bugs §7-§13, qui vivent au niveau protocole HTTP) est structurellement aveugle à cette classe de bug. Un navigateur headless piloté (Playwright/Puppeteer, `page.on("framenavigated", ...)` pour tracer chaque navigation, `page.on("dialog", ...)` pour intercepter les popups natifs) est l'outil à sortir dès qu'un symptôme implique un **ordre d'événements** côté client (redirections, état React, écrans qui s'enchaînent) plutôt qu'une simple réponse HTTP incorrecte — et il faut le faire tourner plusieurs fois de suite avant de conclure qu'un correctif tient, car ce type de bug est par nature intermittent (dépendant du timing réseau réel).

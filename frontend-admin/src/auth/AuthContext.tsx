@@ -2,7 +2,13 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 
 import { apiRequest } from "../api/client";
 import type { User } from "../types";
-import { exchangeCodeForTokens, loadTokens, logout as cognitoLogout, redirectToLogin } from "./cognito";
+import {
+  clearLoginLoopGuard,
+  exchangeCodeForTokens,
+  loadTokens,
+  logout as cognitoLogout,
+  redirectToLogin,
+} from "./cognito";
 
 interface AuthContextValue {
   user: User | null;
@@ -46,10 +52,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // sans jamais afficher d'erreur réelle (bug réel constaté le 2026-08-07).
     const me = await apiRequest<User>("/me");
     setUser(me);
+    clearLoginLoopGuard();
   }
 
   function logout(): void {
-    setUser(null);
+    // Ne PAS faire setUser(null) ici : ça déclenche un re-render synchrone
+    // de RequireAuth (Navigate vers /login) AVANT que la vraie navigation
+    // plein-page vers Cognito /logout (ci-dessous) n'ait eu le temps de
+    // partir — LoginPage se monte alors en avance, pose son verrou anti-
+    // boucle et lance sa propre redirection vers Cognito, en concurrence
+    // avec le vrai logout. Selon le timing, soit ce faux départ "gagne" la
+    // course (le vrai /logout n'a jamais lieu → session Cognito toujours
+    // active → SSO silencieux → reconnexion automatique via /callback),
+    // soit il empoisonne juste le verrou anti-boucle (écran d'erreur au
+    // lieu de l'écran de connexion) — bug réel constaté le 2026-08-07,
+    // reproduit et confirmé par trace de navigation en navigateur réel.
+    // window.location.assign() ci-dessous va de toute façon détruire tout
+    // l'état React dans l'instant qui suit — setUser(null) n'apporte rien.
     cognitoLogout();
   }
 

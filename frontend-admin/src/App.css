@@ -52,6 +52,10 @@ a {
   gap: 1rem;
 }
 
+.layout-user a {
+  color: white;
+}
+
 .layout-user button {
   background: transparent;
   border: 1px solid white;
@@ -282,4 +286,40 @@ dd {
   display: inline-block;
   margin-top: 0.75rem;
   cursor: pointer;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 28, 34, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-card {
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.modal-card h2 {
+  margin-top: 0;
+  font-size: 1.1rem;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.button-secondary {
+  background: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
 }

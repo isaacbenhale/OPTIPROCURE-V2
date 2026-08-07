@@ -13,6 +13,10 @@ const LOGOUT_URI = import.meta.env.VITE_LOGOUT_URI;
 const CODE_VERIFIER_KEY = "optiprocure_code_verifier";
 const STATE_KEY = "optiprocure_oauth_state";
 const TOKENS_KEY = "optiprocure_tokens";
+// Verrou anti-boucle de LoginPage (voir LoginPage.tsx) — ici pour rester à
+// côté des autres clés sessionStorage, et pour que handleCallback puisse
+// l'effacer après une connexion réussie (voir clearLoginLoopGuard).
+export const LOGIN_LOOP_GUARD_KEY = "optiprocure_login_redirect_at";
 
 export interface Tokens {
   access_token: string;
@@ -130,6 +134,16 @@ export function loadTokens(): Tokens | null {
 
 export function clearTokens(): void {
   sessionStorage.removeItem(TOKENS_KEY);
+}
+
+// À appeler après toute authentification réussie (voir AuthContext::
+// handleCallback) — sans ça, le verrou anti-boucle de LoginPage ne
+// s'efface jamais après un login réussi, et un cycle légitime
+// connexion→déconnexion→reconnexion rapide (moins de 8s, un usage tout à
+// fait normal) se retrouve à tort traité comme une boucle d'échec (bug
+// réel constaté le 2026-08-07, reproduit en navigateur réel).
+export function clearLoginLoopGuard(): void {
+  sessionStorage.removeItem(LOGIN_LOOP_GUARD_KEY);
 }
 
 export function logout(): void {

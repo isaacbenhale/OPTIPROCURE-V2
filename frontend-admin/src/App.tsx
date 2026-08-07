@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { Layout } from "./components/Layout";
 import { CallbackPage } from "./pages/CallbackPage";
 import { LoginPage } from "./pages/LoginPage";
+import { ReferenceDataPage } from "./pages/ReferenceDataPage";
 import { TenderCreatePage } from "./pages/TenderCreatePage";
 import { TenderDetailPage } from "./pages/TenderDetailPage";
 import { TendersListPage } from "./pages/TendersListPage";
@@ -20,6 +21,14 @@ function RequireAuth({ children }: { children: ReactNode }) {
   }
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+  return <>{children}</>;
+}
+
+function RequireAdmin({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  if (user?.role !== "ADMIN") {
+    return <Navigate to="/tenders" replace />;
   }
   return <>{children}</>;
 }
@@ -40,6 +49,14 @@ function AppRoutes() {
         <Route path="/tenders" element={<TendersListPage />} />
         <Route path="/tenders/new" element={<TenderCreatePage />} />
         <Route path="/tenders/:id" element={<TenderDetailPage />} />
+        <Route
+          path="/referentiels"
+          element={
+            <RequireAdmin>
+              <ReferenceDataPage />
+            </RequireAdmin>
+          }
+        />
       </Route>
       <Route path="*" element={<Navigate to="/tenders" replace />} />
     </Routes>
