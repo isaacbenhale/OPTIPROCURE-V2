@@ -4,6 +4,10 @@ Authentification/autorisation — double contrôle CLAUDE.md : groupe Cognito
 métier fine relue en base (role/is_active/mfa_enabled sur la ligne `users`
 upsertée à chaque requête).
 
+Copie de backend/tenders_api/auth.py (duplication délibérée plutôt qu'une
+abstraction partagée prématurée — voir tasks/01-referentiels-admin.md et
+tasks/13-gestion-comptes-internes.md).
+
 Le frontend doit envoyer l'ACCESS TOKEN Cognito (pas l'ID token) — c'est
 celui-ci que le JWT Authorizer HTTP API valide via client_id/aud. L'access
 token ne porte ni email ni name, donc on appelle cognito-idp:GetUser avec
@@ -13,8 +17,7 @@ quand même la requête en SigV4 avec les identifiants IAM de la Lambda, donc
 IAM évalue aussi cette action pour le rôle appelant (contrairement à un
 appel direct depuis un navigateur, non signé). Permission
 cognito-idp:GetUser requise sur le rôle Lambda, scopée au User Pool
-(voir iam.tf) — erreur corrigée le 2026-08-07 après un bug réel en prod
-(401 systématique, boucle infinie login/callback côté frontend-admin).
+(voir iam.tf) — erreur corrigée le 2026-08-07 après un bug réel en prod.
 """
 import os
 from datetime import datetime, timedelta, timezone
@@ -22,7 +25,7 @@ from datetime import datetime, timedelta, timezone
 import boto3
 from botocore.exceptions import ClientError
 
-from errors import ForbiddenError, UnauthorizedError, ValidationError
+from errors import ForbiddenError, UnauthorizedError
 
 REGION = os.environ["AWS_REGION"]
 
@@ -161,50 +164,3 @@ def require_role(user: dict, allowed: set[str]):
 def require_mfa(user: dict):
     if not user["mfa_enabled"]:
         raise ForbiddenError("Cette action ADMIN requiert le MFA activé sur le compte.")
-
-
-# --- Self-service MFA (module 13) -------------------------------------
-# AssociateSoftwareToken / VerifySoftwareToken / SetUserMFAPreference sont
-# des actions "self" (le compte agit sur lui-même via son propre access
-# token, jamais sur le compte d'un tiers) — mais restent des appels
-# cognito-idp:* signés en SigV4 par boto3 avec les identifiants IAM de la
-# Lambda, donc soumis à la même exigence de permission IAM explicite que
-# GetUser ci-dessus (voir iam.tf, lambda_tenders_api_policy). Reproduit en
-# self-service ce qui a été fait manuellement via script boto3 pour
-# test.admin (tasks/13-gestion-comptes-internes.md).
-
-def associate_mfa(access_token: str) -> dict:
-    client = boto3.client("cognito-idp", region_name=REGION)
-    try:
-        resp = client.associate_software_token(AccessToken=access_token)
-    except ClientError as exc:
-        raise UnauthorizedError("Token invalide ou expiré (cognito-idp:AssociateSoftwareToken a échoué).") from exc
-    return {"secret_code": resp["SecretCode"]}
-
-
-def verify_mfa(access_token: str, code: str) -> None:
-    if not code or not code.strip():
-        raise ValidationError("Code de vérification manquant.", fields={"code": "requis"})
-
-    client = boto3.client("cognito-idp", region_name=REGION)
-    try:
-        resp = client.verify_software_token(
-            AccessToken=access_token, UserCode=code.strip(), FriendlyDeviceName="frontend-admin"
-        )
-    except client.exceptions.CodeMismatchException as exc:
-        raise ValidationError("Code de vérification incorrect.", fields={"code": "incorrect"}) from exc
-    except client.exceptions.EnableSoftwareTokenMFAException as exc:
-        raise ValidationError("Échec de l'activation du MFA — réessaie depuis le début.") from exc
-    except ClientError as exc:
-        raise UnauthorizedError("Token invalide ou expiré (cognito-idp:VerifySoftwareToken a échoué).") from exc
-
-    if resp.get("Status") != "SUCCESS":
-        raise ValidationError("Code de vérification incorrect.", fields={"code": "incorrect"})
-
-    try:
-        client.set_user_mfa_preference(
-            AccessToken=access_token,
-            SoftwareTokenMfaSettings={"Enabled": True, "PreferredMfa": True},
-        )
-    except ClientError as exc:
-        raise ValidationError("Code vérifié mais échec de l'activation du MFA sur le compte.") from exc

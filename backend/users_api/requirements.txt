@@ -1,0 +1,11 @@
+# psycopg2 nécessite des bibliothèques natives (libpq) : vendorisé pour
+# Amazon Linux via `make build-users-api-lambda` (voir
+# infra/terraform/Makefile), jamais un simple `pip install` local packagé
+# tel quel dans le zip Lambda.
+# boto3 est déjà présent dans le runtime Lambda managé — inutile de le packager.
+psycopg2-binary==2.9.10
+
+# Bundle CA public (Mozilla, via certifi) pour sslrootcert — voir db.py,
+# get_connection() : sslrootcert="system" échoue dans un environnement
+# Lambda zip (pas de magasin de certificats OS à l'emplacement attendu).
+certifi

@@ -60,6 +60,9 @@ locals {
     "GET /tenders/{id}/documents/{docId}",
     "DELETE /tenders/{id}/documents/{docId}",
     "GET /me",
+    # MFA self-service (module 13) — voir backend/tenders_api/auth.py::associate_mfa/verify_mfa.
+    "POST /me/mfa/setup",
+    "POST /me/mfa/verify",
   ])
 }
 
@@ -105,6 +108,36 @@ resource "aws_apigatewayv2_route" "reference_data_api" {
   api_id             = aws_apigatewayv2_api.backoffice.id
   route_key          = each.value
   target             = "integrations/${aws_apigatewayv2_integration.reference_data_api.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
+}
+
+resource "aws_apigatewayv2_integration" "users_api" {
+  api_id                 = aws_apigatewayv2_api.backoffice.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.users_api.invoke_arn
+  payload_format_version = "2.0"
+}
+
+# Routes de gestion des comptes internes (module 13, backend/users_api) —
+# toutes réservées à ADMIN + MFA côté Lambda (voir users.py, WRITE_ROLES).
+locals {
+  users_api_routes = toset([
+    "GET /users",
+    "POST /users",
+    "PUT /users/{sub}/groups",
+    "POST /users/{sub}/activate",
+    "POST /users/{sub}/deactivate",
+    "DELETE /users/{sub}",
+  ])
+}
+
+resource "aws_apigatewayv2_route" "users_api" {
+  for_each = local.users_api_routes
+
+  api_id             = aws_apigatewayv2_api.backoffice.id
+  route_key          = each.value
+  target             = "integrations/${aws_apigatewayv2_integration.users_api.id}"
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito_jwt.id
 }

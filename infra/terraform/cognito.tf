@@ -15,7 +15,7 @@ resource "aws_cognito_user_pool" "backoffice" {
   }
 
   password_policy {
-    minimum_length    = 12
+    minimum_length    = 8 # demande explicite du 2026-08-07 (était 12)
     require_lowercase = true
     require_uppercase = true
     require_numbers   = true
@@ -33,6 +33,21 @@ resource "aws_cognito_user_pool" "backoffice" {
 
   admin_create_user_config {
     allow_admin_create_user_only = true # pas d'auto-inscription côté back-office
+  }
+
+  # Sans ce bloc, Cognito envoie via COGNITO_DEFAULT — son service email
+  # intégré, gratuit mais non authentifié pour ce domaine (pas de SPF/DKIM
+  # propres à optiprocure.pro) : les invitations (mot de passe temporaire)
+  # partent bien mais atterrissent en spam chez Gmail/Outlook (bug réel
+  # constaté le 2026-08-07). optiprocure.pro est déjà vérifié dans SES
+  # (domaine + DKIM + accès production, hérité de la v1 d'OptiProcure,
+  # même région ca-central-1) — on route donc les emails Cognito au
+  # travers de cette identité SES déjà authentifiée, sans nouvelle
+  # démarche DNS.
+  email_configuration {
+    email_sending_account = "DEVELOPER"
+    source_arn            = "arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:identity/optiprocure.pro"
+    from_email_address    = "OptiProcure <no-reply@optiprocure.pro>"
   }
 
   schema {

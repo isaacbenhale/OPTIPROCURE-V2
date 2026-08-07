@@ -29,10 +29,11 @@ L'ordre suit les dépendances réelles, pas la numérotation seule — certains 
 | 10 | [Alertes et notifications](10-alertes-notifications.md) | Module 08, 09, 04 | — |
 | 11 | [Tableau de bord abonné](11-tableau-de-bord-abonne.md) | Module 08, 09 | 10 |
 | 12 | [Back-office admin — stats & audit](12-backoffice-admin-stats-audit.md) | Module 03, 09 | 10, 11 |
+| 13 | [Gestion des comptes internes](13-gestion-comptes-internes.md) | Module 03 | 04 à 12 |
 
 ## Correspondance avec les phases PRD §7
 
-- **Phase 1 (MVP)** : modules 01 à 08 (jusqu'à l'inscription abonné en libre-service), plus une version minimale de 10 (alertes email seules).
+- **Phase 1 (MVP)** : modules 01 à 08 (jusqu'à l'inscription abonné en libre-service), plus une version minimale de 10 (alertes email seules) et le module 13 (sans lui, l'onboarding des AGENT/REVIEWER réels reste bloqué sur un accès AWS CLI/Console).
 - **Phase 2 (Consolidation)** : 09 complet, 10 multi-canal, 11, 12.
 - **Phase 3 (Extension)** : app mobile, API partenaires, import automatisé — volontairement hors de ce découpage, trop tôt pour spécifier en détail (voir PRD §7 et §12).
 

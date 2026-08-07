@@ -30,6 +30,8 @@ resource "aws_lambda_function" "db_migrate" {
       TENDERS_API_ROLE_ARN = aws_iam_role.lambda_tenders_api.arn
       # Substitué dans 063_role_reference_data_api_iam_grant.sql.
       REFERENCE_DATA_API_ROLE_ARN = aws_iam_role.lambda_reference_data_api.arn
+      # Substitué dans 068_role_users_api_iam_grant.sql.
+      USERS_API_ROLE_ARN = aws_iam_role.lambda_users_api.arn
     }
   }
 
@@ -65,6 +67,7 @@ resource "aws_lambda_invocation" "run_migrations" {
     function_version            = aws_lambda_function.db_migrate.source_code_hash
     tenders_api_role_arn        = aws_iam_role.lambda_tenders_api.arn
     reference_data_api_role_arn = aws_iam_role.lambda_reference_data_api.arn
+    users_api_role_arn          = aws_iam_role.lambda_users_api.arn
   }
 
   depends_on = [aws_s3_object.migrations]

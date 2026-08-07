@@ -6,9 +6,11 @@ import { Layout } from "./components/Layout";
 import { CallbackPage } from "./pages/CallbackPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ReferenceDataPage } from "./pages/ReferenceDataPage";
+import { SecurityPage } from "./pages/SecurityPage";
 import { TenderCreatePage } from "./pages/TenderCreatePage";
 import { TenderDetailPage } from "./pages/TenderDetailPage";
 import { TendersListPage } from "./pages/TendersListPage";
+import { UsersPage } from "./pages/UsersPage";
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -57,6 +59,15 @@ function AppRoutes() {
             </RequireAdmin>
           }
         />
+        <Route
+          path="/utilisateurs"
+          element={
+            <RequireAdmin>
+              <UsersPage />
+            </RequireAdmin>
+          }
+        />
+        <Route path="/securite" element={<SecurityPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/tenders" replace />} />
     </Routes>

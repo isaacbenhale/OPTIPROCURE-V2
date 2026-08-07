@@ -83,6 +83,20 @@ data "aws_iam_policy_document" "lambda_tenders_api_policy" {
     resources = [aws_cognito_user_pool.backoffice.arn]
   }
   statement {
+    # MFA self-service (module 13, POST /me/mfa/setup + /me/mfa/verify) —
+    # actions "self" (le compte agit sur son propre access token, jamais
+    # sur celui d'un tiers), mais mêmes signature SigV4 + exigence IAM que
+    # CognitoGetUser ci-dessus (voir docs/LECONS-APPRISES-AWS-SERVERLESS.md
+    # §8 et tasks/13-gestion-comptes-internes.md, "Décisions actées" §2).
+    sid = "CognitoSelfServiceMfa"
+    actions = [
+      "cognito-idp:AssociateSoftwareToken",
+      "cognito-idp:VerifySoftwareToken",
+      "cognito-idp:SetUserMFAPreference",
+    ]
+    resources = [aws_cognito_user_pool.backoffice.arn]
+  }
+  statement {
     sid       = "Logs"
     actions   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
     resources = ["arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"]
@@ -131,6 +145,65 @@ resource "aws_iam_role_policy" "lambda_reference_data_api" {
   name   = "${local.name_prefix}-lambda-reference-data-api-policy"
   role   = aws_iam_role.lambda_reference_data_api.id
   policy = data.aws_iam_policy_document.lambda_reference_data_api_policy.json
+}
+
+# --- Lambda gestion des comptes internes (module 13) -------------------
+# dsql:DbConnect (non-admin), rôle Postgres dédié users_api_role
+# (migrations 067-069). Actions cognito-idp:Admin* de gestion de compte —
+# jamais accordées aux autres Lambdas, isolées ici (principe de moindre
+# privilège : seule cette Lambda peut créer/désactiver un compte ou changer
+# ses groupes).
+
+resource "aws_iam_role" "lambda_users_api" {
+  name               = "${local.name_prefix}-lambda-users-api"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
+  tags               = local.tags
+}
+
+data "aws_iam_policy_document" "lambda_users_api_policy" {
+  statement {
+    sid       = "DsqlConnect"
+    actions   = ["dsql:DbConnect"]
+    resources = [aws_dsql_cluster.main.arn]
+  }
+  statement {
+    # Voir le commentaire équivalent dans lambda_tenders_api_policy —
+    # même auth.py (JIT provisioning de l'ADMIN appelant), même besoin.
+    sid       = "CognitoGetUser"
+    actions   = ["cognito-idp:GetUser"]
+    resources = [aws_cognito_user_pool.backoffice.arn]
+  }
+  statement {
+    # Gestion des comptes back-office (module 13, backend/users_api/users.py)
+    # — création, changement de groupes (rôle), activation/désactivation.
+    # AdminUserGlobalSignOut : révocation immédiate des tokens actifs après
+    # un changement de groupes ou une désactivation (voir "Décisions
+    # actées" §1 de tasks/13-gestion-comptes-internes.md).
+    sid = "CognitoUserManagement"
+    actions = [
+      "cognito-idp:AdminCreateUser",
+      "cognito-idp:AdminAddUserToGroup",
+      "cognito-idp:AdminRemoveUserFromGroup",
+      "cognito-idp:AdminListGroupsForUser",
+      "cognito-idp:AdminUserGlobalSignOut",
+      "cognito-idp:AdminEnableUser",
+      "cognito-idp:AdminDisableUser",
+      "cognito-idp:AdminDeleteUser",
+      "cognito-idp:ListUsersInGroup",
+    ]
+    resources = [aws_cognito_user_pool.backoffice.arn]
+  }
+  statement {
+    sid       = "Logs"
+    actions   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"]
+  }
+}
+
+resource "aws_iam_role_policy" "lambda_users_api" {
+  name   = "${local.name_prefix}-lambda-users-api-policy"
+  role   = aws_iam_role.lambda_users_api.id
+  policy = data.aws_iam_policy_document.lambda_users_api_policy.json
 }
 
 # --- Lambda Publication Coordinator (stub, module 5 à venir) -----------

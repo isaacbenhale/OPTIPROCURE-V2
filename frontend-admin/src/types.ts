@@ -40,6 +40,23 @@ export interface User {
   last_login_at: string | null;
 }
 
+// Miroir de backend/users_api/users.py::list_accounts (module 13) — un
+// compte interne tel que vu par ADMIN, fusion Cognito (groupes) + DSQL
+// (is_active/mfa_enabled/last_login_at, absents tant que jamais connecté).
+export interface Account {
+  cognito_sub: string;
+  email: string;
+  full_name: string | null;
+  groups: Role[];
+  effective_role: Role | null;
+  cognito_enabled: boolean;
+  user_status: string;
+  is_active: boolean;
+  mfa_enabled: boolean;
+  last_login_at: string | null;
+  has_logged_in: boolean;
+}
+
 export interface Tender {
   id: string;
   reference_number: string | null;

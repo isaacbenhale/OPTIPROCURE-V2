@@ -1,4 +1,4 @@
-.PHONY: build-migrate-lambda build-tenders-api-lambda build-reference-data-api-lambda build-all clean
+.PHONY: build-migrate-lambda build-tenders-api-lambda build-reference-data-api-lambda build-users-api-lambda build-all clean
 
 # psycopg2-binary contient des bibliothèques compilées : on construit le
 # paquet dans un conteneur Amazon Linux pour garantir la compatibilité
@@ -44,7 +44,19 @@ build-reference-data-api-lambda:
 		public.ecr.aws/sam/build-python3.12 \
 		pip install -r /src/requirements.txt --target /out --no-cache-dir
 
-build-all: build-migrate-lambda build-tenders-api-lambda build-reference-data-api-lambda
+# Code source dans backend/users_api/ — module 13, gestion des comptes
+# internes (création, groupes/rôles, activation/désactivation).
+build-users-api-lambda:
+	rm -rf build/users_api
+	mkdir -p build/users_api
+	cp ../../backend/users_api/*.py build/users_api/
+	docker run --rm --platform linux/amd64 \
+		-v "$(PWD)/../../backend/users_api:/src" \
+		-v "$(PWD)/build/users_api:/out" \
+		public.ecr.aws/sam/build-python3.12 \
+		pip install -r /src/requirements.txt --target /out --no-cache-dir
+
+build-all: build-migrate-lambda build-tenders-api-lambda build-reference-data-api-lambda build-users-api-lambda
 	@echo "Paquets Lambda prêts dans build/. Lancer 'terraform apply' ensuite."
 
 clean:

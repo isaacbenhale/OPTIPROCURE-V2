@@ -4,12 +4,13 @@ plan module 3 §8 : reflet immédiat d'un changement de groupe Cognito, rejet
 propre d'un token sans cognito:groups, jamais un crash).
 """
 from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock
 
 import pytest
 from conftest import FakeCursor
 
 import auth
-from errors import ForbiddenError, UnauthorizedError
+from errors import ForbiddenError, UnauthorizedError, ValidationError
 
 
 def test_resolve_role_from_groups_picks_admin_first_by_precedence():
@@ -124,3 +125,49 @@ def test_require_mfa_raises_when_disabled():
 
 def test_require_mfa_passes_when_enabled():
     auth.require_mfa({"mfa_enabled": True})
+
+
+# --- MFA self-service (module 13) ---------------------------------------
+
+def _mock_cognito_client(monkeypatch):
+    client = MagicMock()
+    client.exceptions.CodeMismatchException = type("CodeMismatchException", (Exception,), {})
+    client.exceptions.EnableSoftwareTokenMFAException = type("EnableSoftwareTokenMFAException", (Exception,), {})
+    monkeypatch.setattr(auth.boto3, "client", lambda *a, **k: client)
+    return client
+
+
+def test_associate_mfa_returns_secret_code(monkeypatch):
+    client = _mock_cognito_client(monkeypatch)
+    client.associate_software_token.return_value = {"SecretCode": "ABCDEF123456"}
+    result = auth.associate_mfa("fake-access-token")
+    assert result == {"secret_code": "ABCDEF123456"}
+    client.associate_software_token.assert_called_once_with(AccessToken="fake-access-token")
+
+
+def test_verify_mfa_missing_code_is_validation_error(monkeypatch):
+    client = _mock_cognito_client(monkeypatch)
+    with pytest.raises(ValidationError):
+        auth.verify_mfa("fake-access-token", "")
+    client.verify_software_token.assert_not_called()
+
+
+def test_verify_mfa_wrong_code_is_validation_error(monkeypatch):
+    client = _mock_cognito_client(monkeypatch)
+    client.verify_software_token.side_effect = client.exceptions.CodeMismatchException()
+    with pytest.raises(ValidationError):
+        auth.verify_mfa("fake-access-token", "000000")
+    client.set_user_mfa_preference.assert_not_called()
+
+
+def test_verify_mfa_success_enables_preference(monkeypatch):
+    client = _mock_cognito_client(monkeypatch)
+    client.verify_software_token.return_value = {"Status": "SUCCESS"}
+    auth.verify_mfa("fake-access-token", "123456")
+    client.verify_software_token.assert_called_once_with(
+        AccessToken="fake-access-token", UserCode="123456", FriendlyDeviceName="frontend-admin"
+    )
+    client.set_user_mfa_preference.assert_called_once_with(
+        AccessToken="fake-access-token",
+        SoftwareTokenMfaSettings={"Enabled": True, "PreferredMfa": True},
+    )

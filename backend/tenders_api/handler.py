@@ -54,7 +54,7 @@ def _parse_body(event):
         raise ValidationError("Corps de requête JSON invalide.") from exc
 
 
-def _route(cur, route_key, user, tender_id, document_id, body, query_params, correlation_id, ip_address):
+def _route(cur, route_key, user, tender_id, document_id, body, query_params, correlation_id, ip_address, access_token):
     if route_key == "GET /tenders":
         filters = {k: v for k, v in query_params.items() if k in ("status", "sector", "procedure_type", "country_id", "category_id", "q")}
         cursor = query_params.get("cursor")
@@ -112,6 +112,13 @@ def _route(cur, route_key, user, tender_id, document_id, body, query_params, cor
     if route_key == "GET /me":
         return 200, user
 
+    if route_key == "POST /me/mfa/setup":
+        return 200, auth.associate_mfa(access_token)
+
+    if route_key == "POST /me/mfa/verify":
+        auth.verify_mfa(access_token, body.get("code", ""))
+        return 200, {"status": "mfa_enabled"}
+
     raise NotFoundError(f"Route inconnue: {route_key}")
 
 
@@ -145,7 +152,8 @@ def handler(event, context):
         status_code, payload = db.run_in_transaction(
             conn,
             lambda cur: _route(
-                cur, route_key, user, tender_id, document_id, body, query_params, correlation_id, ip_address
+                cur, route_key, user, tender_id, document_id, body, query_params, correlation_id, ip_address,
+                access_token,
             ),
         )
 

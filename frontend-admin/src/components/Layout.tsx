@@ -17,6 +17,8 @@ export function Layout() {
         {user && (
           <div className="layout-user">
             {user.role === "ADMIN" && <Link to="/referentiels">Référentiels</Link>}
+            {user.role === "ADMIN" && <Link to="/utilisateurs">Utilisateurs</Link>}
+            <Link to="/securite">Sécurité</Link>
             <span>
               {user.full_name} · <strong>{user.role}</strong>
             </span>
