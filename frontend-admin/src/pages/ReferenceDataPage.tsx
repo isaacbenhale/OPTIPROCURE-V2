@@ -41,9 +41,14 @@ export function ReferenceDataPage() {
         avec MFA activé.
       </p>
 
-      <div className="filters">
+      <div className="tabs">
         {TABS.map((t) => (
-          <button key={t.key} type="button" onClick={() => setTab(t.key)} disabled={tab === t.key}>
+          <button
+            key={t.key}
+            type="button"
+            className={tab === t.key ? "" : "button-secondary"}
+            onClick={() => setTab(t.key)}
+          >
             {t.label}
           </button>
         ))}

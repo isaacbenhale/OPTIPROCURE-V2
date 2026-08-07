@@ -3,29 +3,56 @@ import { useEffect, useState } from "react";
 import { activateAccount, createAccount, deactivateAccount, deleteAccount, listAccounts, updateGroups } from "../api/users";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { IconBriefcase, IconEye, IconLock, IconShield, IconUsers } from "../components/Icons";
+import { StatCard } from "../components/StatCard";
 import type { Account, Role } from "../types";
 
 const ALL_ROLES: Role[] = ["ADMIN", "REVIEWER", "AGENT"];
 
-function GroupCheckboxes({
-  selected,
-  onChange,
-}: {
-  selected: Role[];
-  onChange: (groups: Role[]) => void;
-}) {
+const ROLE_META: Record<Role, { desc: string; icon: string; Icon: typeof IconShield }> = {
+  ADMIN: { desc: "Accès complet back-office", icon: "admin", Icon: IconShield },
+  REVIEWER: { desc: "Validation et audit", icon: "reviewer", Icon: IconEye },
+  AGENT: { desc: "Opérations quotidiennes", icon: "agent", Icon: IconBriefcase },
+};
+
+function RoleSelector({ selected, onChange }: { selected: Role[]; onChange: (groups: Role[]) => void }) {
   function toggle(role: Role) {
     onChange(selected.includes(role) ? selected.filter((r) => r !== role) : [...selected, role]);
   }
 
   return (
-    <div className="form-row">
-      {ALL_ROLES.map((role) => (
-        <label key={role} className="checkbox-label">
-          <input type="checkbox" checked={selected.includes(role)} onChange={() => toggle(role)} />
-          {role}
-        </label>
-      ))}
+    <div className="role-options">
+      {ALL_ROLES.map((role) => {
+        const isSelected = selected.includes(role);
+        const RoleIcon = ROLE_META[role].Icon;
+        return (
+          <label
+            key={role}
+            className={`role-option${isSelected ? " role-option-selected" : ""}`}
+            onClick={(e) => {
+              // évite le double-toggle : le clic sur le <label> déclenche déjà le
+              // changement natif du checkbox enfant.
+              if ((e.target as HTMLElement).tagName !== "INPUT") toggle(role);
+            }}
+          >
+            <span className="role-option-left">
+              <span className={`role-option-icon role-option-icon-${ROLE_META[role].icon}`}>
+                <RoleIcon size={17} />
+              </span>
+              <span className="role-option-text">
+                <span className="role-option-name">{role}</span>
+                <span className="role-option-desc">{ROLE_META[role].desc}</span>
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              className="role-option-checkbox"
+              checked={isSelected}
+              onChange={() => toggle(role)}
+            />
+          </label>
+        );
+      })}
     </div>
   );
 }
@@ -110,20 +137,45 @@ export function UsersPage() {
       .finally(() => setTogglingActive(false));
   }
 
+  const totalAccounts = accounts.length;
+  const activeAdmins = accounts.filter((a) => a.is_active && a.groups.includes("ADMIN")).length;
+  const mfaCount = accounts.filter((a) => a.mfa_enabled).length;
+
   return (
     <div>
       <div className="page-header">
         <h1>Utilisateurs</h1>
       </div>
-      <p className="muted">
-        Comptes back-office (AGENT/REVIEWER/ADMIN). Un changement de groupes révoque la session active du
-        compte concerné (reconnexion nécessaire pour que le nouveau rôle s'applique).
-      </p>
+
+      <div className="notice-badge">
+        <IconLock size={14} />
+        Les changements de rôles révoquent la session active du compte concerné.
+      </div>
+
+      {!loading && totalAccounts > 0 && (
+        <div className="stats-row">
+          <StatCard label="Total comptes" value={totalAccounts} icon={<IconUsers size={17} />} tone="brand" />
+          <StatCard
+            label="Admins actifs"
+            value={activeAdmins}
+            hint={`${Math.round((activeAdmins / totalAccounts) * 100)}% du total`}
+            icon={<IconShield size={17} />}
+            tone="purple"
+          />
+          <StatCard
+            label="MFA activé"
+            value={`${mfaCount} / ${totalAccounts}`}
+            hint={`${Math.round((mfaCount / totalAccounts) * 100)}% de couverture`}
+            icon={<IconLock size={17} />}
+            tone="success"
+          />
+        </div>
+      )}
 
       <form className="tender-form" onSubmit={handleCreate}>
         <ErrorBanner error={error} />
         <label>
-          Email *
+          Adresse email
           <input
             required
             type="email"
@@ -132,10 +184,12 @@ export function UsersPage() {
             placeholder="prenom.nom@optiprocure.test"
           />
         </label>
-        <p className="muted">Groupes (au moins un) :</p>
-        <GroupCheckboxes selected={newGroups} onChange={setNewGroups} />
+        <div>
+          <p className="field-label">Rôles (au moins un)</p>
+          <RoleSelector selected={newGroups} onChange={setNewGroups} />
+        </div>
         <button type="submit" disabled={creating || newGroups.length === 0}>
-          {creating ? "Création…" : "+ Créer un compte"}
+          {creating ? "Création…" : "Créer un compte"}
         </button>
       </form>
 
@@ -162,8 +216,8 @@ export function UsersPage() {
                 <td>
                   {editingSub === account.cognito_sub ? (
                     <div>
-                      <GroupCheckboxes selected={editGroups} onChange={setEditGroups} />
-                      <div className="workflow-actions-buttons">
+                      <RoleSelector selected={editGroups} onChange={setEditGroups} />
+                      <div className="workflow-actions-buttons" style={{ marginTop: "0.6rem" }}>
                         <button
                           type="button"
                           disabled={savingGroups || editGroups.length === 0}
@@ -171,7 +225,12 @@ export function UsersPage() {
                         >
                           {savingGroups ? "Enregistrement…" : "Enregistrer"}
                         </button>
-                        <button type="button" disabled={savingGroups} onClick={() => setEditingSub(null)}>
+                        <button
+                          type="button"
+                          className="button-secondary"
+                          disabled={savingGroups}
+                          onClick={() => setEditingSub(null)}
+                        >
                           Annuler
                         </button>
                       </div>
@@ -179,7 +238,7 @@ export function UsersPage() {
                   ) : (
                     <>
                       {account.groups.join(", ")}{" "}
-                      <button type="button" onClick={() => startEditGroups(account)}>
+                      <button type="button" className="button-secondary" onClick={() => startEditGroups(account)}>
                         Modifier
                       </button>
                     </>
@@ -196,6 +255,7 @@ export function UsersPage() {
                   <div className="workflow-actions-buttons">
                     <button
                       type="button"
+                      className="button-secondary"
                       onClick={() =>
                         setConfirmTarget({
                           sub: account.cognito_sub,
@@ -208,7 +268,7 @@ export function UsersPage() {
                     </button>
                     <button
                       type="button"
-                      className="button-secondary"
+                      className="button-danger"
                       onClick={() =>
                         setConfirmTarget({ sub: account.cognito_sub, email: account.email, action: "delete" })
                       }
@@ -243,6 +303,7 @@ export function UsersPage() {
           confirmTarget?.action === "delete" ? "Supprimer" : confirmTarget?.action === "deactivate" ? "Désactiver" : "Réactiver"
         }
         cancelLabel="Annuler"
+        danger={confirmTarget?.action === "delete" || confirmTarget?.action === "deactivate"}
         onConfirm={confirmPendingAction}
         onCancel={() => setConfirmTarget(null)}
       />

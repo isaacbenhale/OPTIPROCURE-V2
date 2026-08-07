@@ -32,27 +32,33 @@ export function LoginPage() {
   if (loopDetected) {
     return (
       <div className="centered">
-        <p>
-          La connexion échoue de façon répétée. Vérifie ta connexion réseau, ou contacte un administrateur
-          si le problème persiste.
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            sessionStorage.removeItem(LOGIN_LOOP_GUARD_KEY);
-            setLoopDetected(false);
-            void login();
-          }}
-        >
-          Réessayer la connexion
-        </button>
+        <div>
+          <span className="logo-mark">OP</span>
+          <p>
+            La connexion échoue de façon répétée. Vérifie ta connexion réseau, ou contacte un administrateur
+            si le problème persiste.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              sessionStorage.removeItem(LOGIN_LOOP_GUARD_KEY);
+              setLoopDetected(false);
+              void login();
+            }}
+          >
+            Réessayer la connexion
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="centered">
-      <p>Redirection vers la connexion…</p>
+      <div>
+        <span className="logo-mark">OP</span>
+        <p>Redirection vers la connexion…</p>
+      </div>
     </div>
   );
 }

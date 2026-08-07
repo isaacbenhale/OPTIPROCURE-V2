@@ -32,14 +32,19 @@ export function CallbackPage() {
 
   return (
     <div className="centered">
-      {error ? (
-        <>
-          <ErrorBanner error={error} />
-          <a href="/login">Réessayer</a>
-        </>
-      ) : (
-        <p>Connexion en cours…</p>
-      )}
+      <div style={{ width: "100%", maxWidth: 360 }}>
+        <span className="logo-mark">OP</span>
+        {error ? (
+          <>
+            <ErrorBanner error={error} />
+            <p>
+              <a href="/login">Réessayer</a>
+            </p>
+          </>
+        ) : (
+          <p>Connexion en cours…</p>
+        )}
+      </div>
     </div>
   );
 }
