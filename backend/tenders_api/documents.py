@@ -54,7 +54,7 @@ def _get_owned_editable_tender(cur, user, tender_id):
     tender = tenders.get_tender_row(cur, tender_id)
     if tender is None or tender["deleted_at"] is not None:
         raise NotFoundError("AO introuvable.")
-    if tender["created_by"] != user["id"]:
+    if tender["created_by"] != user["id"] and user["role"] != "ADMIN":
         raise ForbiddenError("Seul le créateur peut gérer les documents de cet AO.")
     if tender["status"] not in ("DRAFT", "REVISION_REQUESTED"):
         raise ForbiddenError(f"Impossible de gérer les documents d'un AO au statut {tender['status']}.")
@@ -74,7 +74,7 @@ def _get_document_row(cur, tender_id, document_id):
 
 
 def create_upload(cur, user, tender_id, payload, correlation_id, ip_address):
-    require_role(user, {"AGENT"})
+    require_role(user, {"AGENT", "ADMIN"})
     _get_owned_editable_tender(cur, user, tender_id)
 
     missing = [f for f in REQUIRED_UPLOAD_FIELDS if not payload.get(f)]
@@ -147,7 +147,7 @@ def get_document_download_url(cur, user, tender_id, document_id):
 
 
 def delete_document(cur, user, tender_id, document_id, correlation_id, ip_address):
-    require_role(user, {"AGENT"})
+    require_role(user, {"AGENT", "ADMIN"})
     _get_owned_editable_tender(cur, user, tender_id)
     _get_document_row(cur, tender_id, document_id)  # 404 propre si déjà supprimé/inexistant
 

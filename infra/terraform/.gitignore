@@ -5,3 +5,4 @@
 terraform.tfvars
 build/
 OUTPUTS.md
+*.out

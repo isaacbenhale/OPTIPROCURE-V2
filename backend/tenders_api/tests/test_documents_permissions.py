@@ -12,6 +12,7 @@ from errors import ForbiddenError, NotFoundError, ValidationError
 
 AGENT = {"id": "u1", "role": "AGENT", "mfa_enabled": False}
 REVIEWER = {"id": "rev-1", "role": "REVIEWER", "mfa_enabled": False}
+ADMIN = {"id": "admin-1", "role": "ADMIN", "mfa_enabled": False}
 
 OWNED_DRAFT_TENDER = {"id": "t1", "deleted_at": None, "created_by": "u1", "status": "DRAFT"}
 NOT_OWNED_TENDER = {"id": "t1", "deleted_at": None, "created_by": "someone-else", "status": "DRAFT"}
@@ -49,6 +50,15 @@ def test_create_upload_wrong_status_is_forbidden():
     cur = FakeCursor(fetchone_results=[OWNED_APPROVED_TENDER])
     with pytest.raises(ForbiddenError):
         documents.create_upload(cur, AGENT, "t1", VALID_UPLOAD_PAYLOAD, "corr-1", "1.2.3.4")
+
+
+def test_admin_create_upload_bypasses_ownership_but_still_checks_status():
+    # ADMIN sur un AO qu'il ne possède pas : pas de blocage sur la
+    # propriété (contrairement à AGENT), mais le contrôle de statut suivant
+    # s'applique toujours.
+    cur = FakeCursor(fetchone_results=[dict(NOT_OWNED_TENDER, status="APPROVED")])
+    with pytest.raises(ForbiddenError, match="statut"):
+        documents.create_upload(cur, ADMIN, "t1", VALID_UPLOAD_PAYLOAD, "corr-1", "1.2.3.4")
 
 
 def test_create_upload_missing_fields():

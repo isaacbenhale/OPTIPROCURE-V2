@@ -96,6 +96,28 @@ def test_update_tender_not_owner_is_forbidden():
         tenders.update_tender(cur, user, "t1", {}, "corr-1", "1.2.3.4")
 
 
+def test_admin_can_create_tender_role_check_passes():
+    # ADMIN a tous les droits AGENT — le rôle passe, l'échec suivant (champs
+    # manquants) prouve qu'on a dépassé le contrôle de rôle, pas qu'on a été
+    # bloqué dessus.
+    cur = FakeCursor()
+    user = {"id": "admin-1", "role": "ADMIN"}
+    with pytest.raises(ValidationError):
+        tenders.create_tender(cur, user, {}, "corr-1", "1.2.3.4")
+
+
+def test_admin_update_bypasses_ownership_but_still_checks_status():
+    # ADMIN sur un AO qu'il ne possède pas : pas de ForbiddenError de
+    # propriété (contrairement à test_update_tender_not_owner_is_forbidden
+    # pour AGENT) — mais le contrôle de statut suivant s'applique toujours.
+    cur = FakeCursor(fetchone_results=[
+        {"id": "t1", "deleted_at": None, "created_by": "someone-else", "status": "APPROVED"},
+    ])
+    user = {"id": "admin-1", "role": "ADMIN"}
+    with pytest.raises(ForbiddenError, match="statut"):
+        tenders.update_tender(cur, user, "t1", {}, "corr-1", "1.2.3.4")
+
+
 def test_update_tender_wrong_status_is_forbidden():
     cur = FakeCursor(fetchone_results=[
         {"id": "t1", "deleted_at": None, "created_by": "u1", "status": "APPROVED"},

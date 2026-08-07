@@ -76,4 +76,13 @@ locals {
     Environment = var.environment
     ManagedBy   = "terraform"
   }
+
+  # CORS attend une ORIGINE (scheme://host[:port]), jamais un chemin —
+  # contrairement à cognito_callback_urls qui contient "/callback" (requis
+  # par Cognito). Sans ce strip, le navigateur envoie "Origin: https://host"
+  # (jamais avec le chemin) et API Gateway ne matche jamais rien : aucun
+  # en-tête Access-Control-Allow-Origin renvoyé, la SPA ne peut lire aucune
+  # réponse de l'API (bug réel observé le 2026-08-07 : boucle infinie
+  # login/callback côté frontend-admin, GET /me silencieusement bloqué).
+  cors_allowed_origins = distinct([for url in var.cognito_callback_urls : regex("^[a-zA-Z]+://[^/]+", url)])
 }

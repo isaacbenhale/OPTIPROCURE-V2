@@ -28,6 +28,16 @@ def test_resolve_role_from_groups_empty_string_returns_none():
     assert auth.resolve_role_from_groups({"cognito:groups": ""}) is None
 
 
+def test_resolve_role_from_groups_api_gateway_bracket_format_single():
+    # Format réel forwardé par API Gateway HTTP API JWT Authorizer pour un
+    # claim liste — confirmé en prod le 2026-08-07 (voir commentaire auth.py).
+    assert auth.resolve_role_from_groups({"cognito:groups": "[ADMIN]"}) == "ADMIN"
+
+
+def test_resolve_role_from_groups_api_gateway_bracket_format_multiple():
+    assert auth.resolve_role_from_groups({"cognito:groups": "[AGENT, ADMIN]"}) == "ADMIN"
+
+
 def test_upsert_user_without_groups_is_forbidden_not_a_crash():
     cur = FakeCursor()
     claims = {"sub": "sub-123", "email": "a@example.com"}

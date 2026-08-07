@@ -1,6 +1,7 @@
 # OS
 .DS_Store
 Thumbs.db
+cred_tests
 
 # Node / Next.js (frontend-admin, frontend-public)
 node_modules/

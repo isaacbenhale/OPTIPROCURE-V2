@@ -30,7 +30,7 @@ Le back-office n'est **jamais** accessible de manière anonyme. Cognito gère la
 |---|---|---|
 | AGENT | Créer et modifier ses brouillons ; soumettre à révision | Ne peut ni approuver ni publier |
 | REVIEWER | Réviser, commenter et retourner un AO | Ne gère pas les utilisateurs |
-| ADMIN | Approuver, superviser les batches et traiter les exceptions | MFA obligatoire |
+| ADMIN | Approuver, superviser les batches et traiter les exceptions — **et hérite de tous les droits AGENT/REVIEWER** (créer/modifier/soumettre/retourner/endosser n'importe quel AO, y compris ceux qu'il n'a pas créés), jamais l'inverse | MFA obligatoire pour ses actions propres (approuver/rejeter/archiver) ; pas requis pour les actions héritées d'AGENT/REVIEWER |
 
 ### Contrôles de sécurité à implémenter
 

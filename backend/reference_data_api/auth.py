@@ -10,9 +10,13 @@ abstraction partagée prématurée — voir tasks/01-referentiels-admin.md).
 Le frontend doit envoyer l'ACCESS TOKEN Cognito (pas l'ID token) — c'est
 celui-ci que le JWT Authorizer HTTP API valide via client_id/aud. L'access
 token ne porte ni email ni name, donc on appelle cognito-idp:GetUser avec
-ce même token pour les récupérer, ainsi que le statut MFA réel — cet appel
-s'authentifie par le token lui-même, aucune permission IAM supplémentaire
-requise sur le rôle Lambda (principe du moindre privilège respecté).
+ce même token pour les récupérer, ainsi que le statut MFA réel — l'appel
+est autorisé par l'access token fourni en paramètre, MAIS boto3 signe
+quand même la requête en SigV4 avec les identifiants IAM de la Lambda, donc
+IAM évalue aussi cette action pour le rôle appelant (contrairement à un
+appel direct depuis un navigateur, non signé). Permission
+cognito-idp:GetUser requise sur le rôle Lambda, scopée au User Pool
+(voir iam.tf) — erreur corrigée le 2026-08-07 après un bug réel en prod.
 """
 import os
 from datetime import datetime, timedelta, timezone
@@ -47,8 +51,16 @@ def get_bearer_token(event) -> str:
 
 
 def resolve_role_from_groups(claims: dict) -> str | None:
+    # Le claim JWT natif Cognito est un array JSON, mais API Gateway
+    # (JWT Authorizer HTTP API) le forward en chaîne texte "[GROUPE]" ou
+    # "[GROUPE1, GROUPE2]" (crochets + virgules), jamais en JSON/CSV nu —
+    # confirmé en prod le 2026-08-07 via log de diagnostic sur un vrai
+    # token (401 systématique / boucle login-callback avant ce correctif).
     groups_raw = claims.get("cognito:groups", "")
-    groups = {g.strip() for g in groups_raw.split(",") if g.strip()} if groups_raw else set()
+    stripped = groups_raw.strip()
+    if stripped.startswith("[") and stripped.endswith("]"):
+        stripped = stripped[1:-1]
+    groups = {g.strip() for g in stripped.split(",") if g.strip()}
     for role in ROLE_PRECEDENCE:
         if role in groups:
             return role

@@ -1,6 +1,6 @@
 # Module 03 — Frontend back-office (`frontend-admin/`)
 
-> Interface SPA pour que les AGENT/REVIEWER/ADMIN utilisent réellement le workflow des AO — sans elle, l'API ne s'utilise qu'au clavier via curl/Postman.
+> Interface SPA pour que les AGENT/REVIEWER/ADMIN utilisent réellement le workflow des AO — sans elle, l'API ne s'utilise qu'au clavier via curl/Postman. **Fait et déployé** (React+Vite+TS, infra S3+CloudFront séparée, `available_actions` calculé côté Lambda). Gestion des référentiels et stats/audit ADMIN restent hors périmètre (modules 01 lecture seule côté front, 12).
 
 ## Objectif
 

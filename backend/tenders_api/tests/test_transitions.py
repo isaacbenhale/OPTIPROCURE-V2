@@ -2,7 +2,7 @@
 import pytest
 
 from errors import ForbiddenError, ValidationError
-from transitions import can_transition
+from transitions import can_transition, compute_available_actions
 
 
 def test_valid_agent_submit_passes():
@@ -37,6 +37,11 @@ def test_owner_only_violation_is_forbidden():
         can_transition(role="AGENT", from_status="DRAFT", to_status="PENDING_REVIEW", is_owner=False, mfa_enabled=False, reason=None)
 
 
+def test_admin_bypasses_owner_only_restriction():
+    # ADMIN a tous les droits AGENT y compris sur un AO qu'il ne possède pas.
+    can_transition(role="ADMIN", from_status="DRAFT", to_status="PENDING_REVIEW", is_owner=False, mfa_enabled=False, reason=None)
+
+
 def test_admin_action_without_mfa_is_forbidden_even_with_correct_role():
     with pytest.raises(ForbiddenError):
         can_transition(role="ADMIN", from_status="PENDING_REVIEW", to_status="APPROVED", is_owner=False, mfa_enabled=False, reason=None)
@@ -63,3 +68,62 @@ def test_admin_can_archive_expired_with_mfa():
 def test_cannot_archive_non_expired():
     with pytest.raises(ForbiddenError):
         can_transition(role="ADMIN", from_status="DRAFT", to_status="ARCHIVED", is_owner=False, mfa_enabled=True, reason=None)
+
+
+# --- compute_available_actions (module 03) ------------------------------
+
+def test_owner_agent_sees_update_and_submit_on_draft():
+    tender = {"status": "DRAFT", "created_by": "u1"}
+    user = {"id": "u1", "role": "AGENT", "mfa_enabled": False}
+    assert set(compute_available_actions(tender, user)) == {"update", "submit"}
+
+
+def test_non_owner_agent_sees_nothing_on_draft():
+    tender = {"status": "DRAFT", "created_by": "someone-else"}
+    user = {"id": "u1", "role": "AGENT", "mfa_enabled": False}
+    assert compute_available_actions(tender, user) == []
+
+
+def test_reviewer_sees_return_and_endorse_on_pending_review():
+    tender = {"status": "PENDING_REVIEW", "created_by": "u1"}
+    user = {"id": "rev-1", "role": "REVIEWER", "mfa_enabled": False}
+    assert set(compute_available_actions(tender, user)) == {"return", "endorse"}
+
+
+def test_admin_without_mfa_sees_reviewer_actions_but_not_approve_or_reject():
+    # ADMIN hérite des droits REVIEWER (non soumis au MFA) mais pas de ses
+    # propres droits approve/reject tant que le MFA n'est pas activé.
+    tender = {"status": "PENDING_REVIEW", "created_by": "u1"}
+    user = {"id": "admin-1", "role": "ADMIN", "mfa_enabled": False}
+    assert set(compute_available_actions(tender, user)) == {"return", "endorse"}
+
+
+def test_admin_with_mfa_sees_all_pending_review_actions():
+    # ADMIN a tous les droits REVIEWER (return/endorse) + ses propres droits
+    # (approve/reject, avec MFA) — jamais l'inverse.
+    tender = {"status": "PENDING_REVIEW", "created_by": "u1"}
+    user = {"id": "admin-1", "role": "ADMIN", "mfa_enabled": True}
+    assert set(compute_available_actions(tender, user)) == {"approve", "reject", "return", "endorse"}
+
+
+def test_admin_with_mfa_sees_only_archive_on_expired():
+    tender = {"status": "EXPIRED", "created_by": "u1"}
+    user = {"id": "admin-1", "role": "ADMIN", "mfa_enabled": True}
+    assert compute_available_actions(tender, user) == ["archive"]
+
+
+def test_admin_sees_agent_actions_even_as_non_owner_on_draft():
+    # ADMIN hérite des droits AGENT (update/submit) sans restriction de
+    # propriété — supervision globale, contrairement à AGENT lui-même
+    # (voir test_non_owner_agent_sees_nothing_on_draft).
+    tender = {"status": "DRAFT", "created_by": "someone-else"}
+    user = {"id": "admin-1", "role": "ADMIN", "mfa_enabled": False}
+    assert set(compute_available_actions(tender, user)) == {"submit", "update", "delete"}
+
+
+def test_no_action_ever_targets_coordinator_only_statuses():
+    # QUEUED_FOR_PUBLICATION/PUBLISHED/EXPIRED ne doivent jamais apparaître
+    # comme cible d'une action, même en théorie — vérifie STATUS_ACTIONS
+    # directement plutôt qu'un cas d'usage précis.
+    from transitions import COORDINATOR_ONLY_STATUSES, STATUS_ACTIONS
+    assert set(STATUS_ACTIONS.values()).isdisjoint(COORDINATOR_ONLY_STATUSES)

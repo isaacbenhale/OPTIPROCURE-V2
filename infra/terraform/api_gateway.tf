@@ -8,7 +8,7 @@ resource "aws_apigatewayv2_api" "backoffice" {
   protocol_type = "HTTP"
 
   cors_configuration {
-    allow_origins = var.cognito_callback_urls
+    allow_origins = local.cors_allowed_origins
     allow_methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
     allow_headers = ["authorization", "content-type"]
   }

@@ -59,7 +59,19 @@ resource "aws_cognito_user_pool_client" "backoffice_spa" {
 
   allowed_oauth_flows                  = ["code"]
   allowed_oauth_flows_user_pool_client = true
-  allowed_oauth_scopes                 = ["openid", "email", "profile"]
+  # aws.cognito.signin.user.admin : sans ce scope, l'access token émis par le
+  # flux Hosted UI (Authorization Code + PKCE) ne peut pas s'auto-interroger
+  # via cognito-idp:GetUser (auth.py::fetch_cognito_user_info) — Cognito
+  # rejette alors l'appel avec NotAuthorizedException "Access Token does not
+  # have required scopes", même si le token est par ailleurs valide et bien
+  # signé (bug réel constaté le 2026-08-07 : un token SRP direct, non soumis
+  # à cette restriction de scope OAuth, fonctionnait alors que le token émis
+  # par le vrai parcours de connexion du navigateur échouait systématiquement).
+  # Pas de "email"/"profile" : Cognito rejette (invalid_scope) la combinaison
+  # des 4 scopes ensemble alors que 3 quelconques passent (limite Hosted UI
+  # constatée empiriquement le 2026-08-07) — et le frontend n'en a de toute
+  # façon pas besoin, voir le commentaire équivalent dans auth/cognito.ts.
+  allowed_oauth_scopes = ["openid", "aws.cognito.signin.user.admin"]
 
   supported_identity_providers = ["COGNITO"]
 
@@ -118,4 +130,10 @@ output "cognito_user_pool_client_id" {
 
 output "cognito_issuer_url" {
   value = "https://cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.backoffice.id}"
+}
+
+# URL de base du Hosted UI Cognito (module 03) — /oauth2/authorize,
+# /oauth2/token, /logout. Consommée par frontend-admin/.env (VITE_COGNITO_DOMAIN).
+output "cognito_hosted_ui_domain" {
+  value = "https://${aws_cognito_user_pool_domain.backoffice.domain}.auth.${var.aws_region}.amazoncognito.com"
 }

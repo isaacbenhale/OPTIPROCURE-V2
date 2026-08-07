@@ -1,0 +1,285 @@
+:root {
+  color-scheme: light;
+  --color-bg: #f7f7f8;
+  --color-surface: #ffffff;
+  --color-border: #d9d9de;
+  --color-text: #1c1c22;
+  --color-muted: #6b6b76;
+  --color-primary: #2b3a67;
+  --color-danger: #b3261e;
+  --radius: 6px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+a {
+  color: var(--color-primary);
+}
+
+.layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  background: var(--color-primary);
+  color: white;
+}
+
+.layout-header a.layout-brand {
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.layout-user {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.layout-user button {
+  background: transparent;
+  border: 1px solid white;
+  color: white;
+}
+
+.layout-main {
+  flex: 1;
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.centered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.filters {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+button,
+.button-link {
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 0.9rem;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+input,
+select,
+textarea {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.4rem 0.6rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+.checkbox-label {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-text);
+}
+
+.tender-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+}
+
+.form-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.form-row > label {
+  flex: 1;
+  min-width: 180px;
+}
+
+fieldset {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+}
+
+.tenders-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-surface);
+}
+
+.tenders-table th,
+.tenders-table td {
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: #e4e4ea;
+  color: var(--color-text);
+}
+
+.status-approved,
+.status-published {
+  background: #d7f0dd;
+}
+
+.status-rejected,
+.status-expired {
+  background: #f6d9d6;
+}
+
+.status-pending_review {
+  background: #fdf0c8;
+}
+
+.tender-detail-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.4rem 1rem;
+}
+
+dt {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+
+dd {
+  margin: 0;
+}
+
+.workflow-actions,
+.documents-panel,
+.history-section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.workflow-actions-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.mfa-note {
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+.reason-modal {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.reason-modal textarea {
+  width: 100%;
+  margin: 0.5rem 0;
+}
+
+.reason-modal-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.error-banner {
+  background: #fbe9e7;
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.error-banner ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.muted {
+  color: var(--color-muted);
+}
+
+.history-timeline {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.upload-input {
+  display: inline-block;
+  margin-top: 0.75rem;
+  cursor: pointer;
+}

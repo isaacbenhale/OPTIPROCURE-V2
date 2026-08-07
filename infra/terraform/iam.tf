@@ -72,6 +72,17 @@ data "aws_iam_policy_document" "lambda_tenders_api_policy" {
     resources = ["${aws_s3_bucket.documents.arn}/*"]
   }
   statement {
+    # boto3 signe la requête cognito-idp:GetUser en SigV4 avec les
+    # identifiants IAM de la Lambda — contrairement à un appel direct
+    # depuis un navigateur (non signé, authentifié par le seul access
+    # token), IAM évalue donc bien cette action pour le rôle appelant.
+    # Sans ce Allow, l'appel échoue par déni implicite malgré un token
+    # valide (bug réel observé et corrigé le 2026-08-07, voir auth.py).
+    sid       = "CognitoGetUser"
+    actions   = ["cognito-idp:GetUser"]
+    resources = [aws_cognito_user_pool.backoffice.arn]
+  }
+  statement {
     sid       = "Logs"
     actions   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
     resources = ["arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"]
@@ -101,6 +112,13 @@ data "aws_iam_policy_document" "lambda_reference_data_api_policy" {
     sid       = "DsqlConnect"
     actions   = ["dsql:DbConnect"]
     resources = [aws_dsql_cluster.main.arn]
+  }
+  statement {
+    # Voir le commentaire équivalent dans lambda_tenders_api_policy —
+    # même auth.py, même besoin (boto3 signe GetUser en SigV4).
+    sid       = "CognitoGetUser"
+    actions   = ["cognito-idp:GetUser"]
+    resources = [aws_cognito_user_pool.backoffice.arn]
   }
   statement {
     sid       = "Logs"

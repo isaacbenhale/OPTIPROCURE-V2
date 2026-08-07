@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from auth import require_active, require_mfa, require_role
 from content_hash import compute_content_hash
 from errors import ForbiddenError, NotFoundError, ValidationError
-from transitions import can_transition
+from transitions import can_transition, compute_available_actions
 
 ALLOWED_SECTORS = {"PUBLIC", "PRIVATE"}
 ALLOWED_PROCUREMENT_TYPES = {"TRAVAUX", "FOURNITURES", "SERVICES", "PRESTATIONS_INTELLECTUELLES"}
@@ -280,12 +280,14 @@ def list_tenders(cur, user, filters, cursor, page_size=20):
     next_cursor = _encode_cursor(rows[-1]) if has_more and rows else None
     for row in rows:
         row["category_ids"] = _get_category_ids(cur, row["id"])
+        row["available_actions"] = compute_available_actions(row, user)
     return rows, next_cursor
 
 
 def get_tender(cur, user, tender_id):
     tender = _get_visible_tender(cur, user, tender_id)
     tender["category_ids"] = _get_category_ids(cur, tender_id)
+    tender["available_actions"] = compute_available_actions(tender, user)
     return tender
 
 
@@ -302,7 +304,7 @@ def get_status_history(cur, user, tender_id):
 
 
 def create_tender(cur, user, payload, correlation_id, ip_address):
-    require_role(user, {"AGENT"})
+    require_role(user, {"AGENT", "ADMIN"})
     _require_fields(payload, CREATE_REQUIRED_FIELDS)
     _validate_enum_fields(payload)
 
@@ -343,13 +345,13 @@ def create_tender(cur, user, payload, correlation_id, ip_address):
 
 
 def update_tender(cur, user, tender_id, payload, correlation_id, ip_address):
-    require_role(user, {"AGENT"})
+    require_role(user, {"AGENT", "ADMIN"})
     _validate_enum_fields(payload)
 
     tender = get_tender_row(cur, tender_id)
     if tender is None or tender["deleted_at"] is not None:
         raise NotFoundError("AO introuvable.")
-    if tender["created_by"] != user["id"]:
+    if tender["created_by"] != user["id"] and user["role"] != "ADMIN":
         raise ForbiddenError("Seul le créateur peut modifier cet AO.")
     if tender["status"] not in ("DRAFT", "REVISION_REQUESTED"):
         raise ForbiddenError(f"Impossible de modifier un AO au statut {tender['status']}.")
@@ -384,7 +386,7 @@ def update_tender(cur, user, tender_id, payload, correlation_id, ip_address):
 
 
 def submit_for_review(cur, user, tender_id, correlation_id, ip_address):
-    require_role(user, {"AGENT"})
+    require_role(user, {"AGENT", "ADMIN"})
     tender = get_tender_row(cur, tender_id)
     if tender is None or tender["deleted_at"] is not None:
         raise NotFoundError("AO introuvable.")
@@ -400,7 +402,7 @@ def submit_for_review(cur, user, tender_id, correlation_id, ip_address):
 
 
 def return_to_agent(cur, user, tender_id, reason, correlation_id, ip_address):
-    require_role(user, {"REVIEWER"})
+    require_role(user, {"REVIEWER", "ADMIN"})
     tender = get_tender_row(cur, tender_id)
     if tender is None or tender["deleted_at"] is not None:
         raise NotFoundError("AO introuvable.")
@@ -412,7 +414,7 @@ def return_to_agent(cur, user, tender_id, reason, correlation_id, ip_address):
 
 
 def endorse(cur, user, tender_id, correlation_id, ip_address):
-    require_role(user, {"REVIEWER"})
+    require_role(user, {"REVIEWER", "ADMIN"})
     tender = get_tender_row(cur, tender_id)
     if tender is None or tender["deleted_at"] is not None:
         raise NotFoundError("AO introuvable.")
